@@ -1,7 +1,7 @@
 from discord.ext import commands
-from database import Database
+from Database.database import Database
 
-class Events(commands.Cog):
+class OnReady(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.bot.db = Database(bot)
@@ -10,7 +10,7 @@ class Events(commands.Cog):
     async def on_ready(self):
         print("Mambo")
         await self.bot.db.connect()
-        print("Database connected & tables ready")
+        print("Database connected")
 
 async def setup(bot):
-    await bot.add_cog(Events(bot))
+    await bot.add_cog(OnReady(bot))

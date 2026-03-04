@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-class Economy(commands.Cog):
+class Balance(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
@@ -18,9 +18,5 @@ class Economy(commands.Cog):
 
         await ctx.send(embed=em)
 
-    @commands.command()
-    async def mambo(self, ctx):
-        await ctx.send(f"{ctx.author.mention} Mambo")
-
 async def setup(bot):
-    await bot.add_cog(Economy(bot))
+    await bot.add_cog(Balance(bot))
