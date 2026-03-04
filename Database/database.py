@@ -6,7 +6,7 @@ class Database:
         self.db = None
 
     async def connect(self):
-        self.db = await aiosqlite.connect("MyBank.db")
+        self.db = await aiosqlite.connect("../MyBank.db")
         await self.create_tables()
 
     async def create_tables(self):
