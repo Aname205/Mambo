@@ -1,2 +1,12 @@
 discord.log
 .env
+
+# Python
+__pycache__/
+*.pyc
+
+# SQLite
+*.db
+
+# Virtual env
+.venv/
