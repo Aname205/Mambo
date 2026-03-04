@@ -12,7 +12,7 @@ token = os.getenv("DISCORD_TOKEN")
 
 keep_alive()
 
-handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+handler = logging.FileHandler(filename='../discord.log', encoding='utf-8', mode='w')
 
 intents = discord.Intents.default()
 intents.members = True
