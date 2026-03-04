@@ -17,11 +17,9 @@ handler = logging.FileHandler(filename='../discord.log', encoding='utf-8', mode=
 intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
+intents.guilds = True
 
 bot = commands.Bot(command_prefix='m', intents=intents)
-
-if sys.platform.startswith("win"):
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 async def main():
     async with bot:
