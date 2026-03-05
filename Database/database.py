@@ -1,5 +1,5 @@
 import aiosqlite
-from Database.models import BalanceDB, ItemsDB
+from Database.models import BalanceDB, ItemsDB, FishingItemsDB, InventoriesDB, LotteriesDB, LotteryPlayersDB, MarketItemsDB
 
 
 class Database:
@@ -8,17 +8,35 @@ class Database:
         self.db = None
         self.balance = None
         self.items = None
+        self.fishing_items = None
+        self.inventories = None
+        self.lotteries = None
+        self.lottery_players = None
+        self.market_items = None
 
     async def connect(self):
         self.db = await aiosqlite.connect("../database.db")
 
+        # bật foreign key
+        await self.db.execute("PRAGMA foreign_keys = ON")
+
         # Initialize sub-modules
         self.balance = BalanceDB(self.db)
         self.items = ItemsDB(self.db)
+        self.fishing_items = FishingItemsDB(self.db)
+        self.inventories = InventoriesDB(self.db)
+        self.lotteries = LotteriesDB(self.db)
+        self.lottery_players = LotteryPlayersDB(self.db)
+        self.market_items = MarketItemsDB(self.db)
 
         # Create tables
         await self.balance.create_table()
         await self.items.create_table()
+        await self.fishing_items.create_table()
+        await self.inventories.create_table()
+        await self.lotteries.create_table()
+        await self.lottery_players.create_table()
+        await self.market_items.create_table()
 
     # ============ SHORTCUT METHODS (để không cần sửa code cũ) ============
     async def get_balance(self, user_id):
