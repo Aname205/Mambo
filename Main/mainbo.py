@@ -24,8 +24,9 @@ bot = commands.Bot(command_prefix='m', intents=intents)
 async def main():
     async with bot:
         await bot.load_extension("Events.on_ready")
-        await bot.load_extension("Commands.balance")
-        await bot.load_extension("Commands.mambo")
+        await bot.load_extension("Commands.Currency.balance")
+        await bot.load_extension("Commands.Misc.mambo")
+        await bot.load_extension("Commands.Currency.blackjack")
         await bot.start(token)
 
 asyncio.run(main())
