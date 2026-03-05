@@ -19,7 +19,7 @@ class Balance(commands.Cog):
 
         await ctx.send(embed=em)
 
-    @commands.command(name="addbalance", aliases=["ab"])
+    @commands.command(name="addbalance", aliases=["ab","addbal"])
     async def add_money(self, ctx, amount: int = None):
         if amount is None:
             return await ctx.send("Please enter an amount to add.")
@@ -33,7 +33,7 @@ class Balance(commands.Cog):
         em.description = f"Added **{amount:,} :coin:** to your wallet.\nCurrent wallet: **{in_hand:,} :coin:**"
         await ctx.send(embed=em)
 
-    @commands.command(name="subbalance", aliases=["sb"])
+    @commands.command(name="subbalance", aliases=["sb", "subbal"])
     async def sub_money(self, ctx, amount: int = None):
         if amount is None:
             return await ctx.send("Please enter an amount to subtract.")
@@ -52,13 +52,22 @@ class Balance(commands.Cog):
         await ctx.send(embed=em)
 
     @commands.command(name="deposit", aliases=["dep"])
-    async def deposit(self, ctx, amount: int = None):
+    async def deposit(self, ctx, amount=None):
         if amount is None:
             return await ctx.send("Please enter an amount to deposit.")
+
+        in_hand, _ = await self.bot.db.get_balance(ctx.author.id)
+        if str(amount).lower() == "all":
+            amount = in_hand
+        else:
+            try:
+                amount = int(amount)
+            except ValueError:
+                return await ctx.send("Please enter a valid number.")
+
         if amount <= 0:
             return await ctx.send("Amount must be greater than 0.")
 
-        in_hand, _ = await self.bot.db.get_balance(ctx.author.id)
         if in_hand < amount:
             return await ctx.send("You do not have enough money in hand.")
 
@@ -75,13 +84,22 @@ class Balance(commands.Cog):
         await ctx.send(embed=em)
 
     @commands.command(name="withdraw", aliases=["wd"])
-    async def withdraw(self, ctx, amount: int = None):
+    async def withdraw(self, ctx, amount=None):
         if amount is None:
             return await ctx.send("Please enter an amount to withdraw.")
+
+        _, in_bank = await self.bot.db.get_balance(ctx.author.id)
+        if str(amount).lower() == "all":
+            amount = in_bank
+        else:
+            try:
+                amount = int(amount)
+            except ValueError:
+                return await ctx.send("Please enter a valid number.")
+
         if amount <= 0:
             return await ctx.send("Amount must be greater than 0.")
 
-        _, in_bank = await self.bot.db.get_balance(ctx.author.id)
         if in_bank < amount:
             return await ctx.send("You do not have enough money in bank.")
 

@@ -75,7 +75,7 @@ class BlackJackView(discord.ui.View):
         )
         em.add_field(
             name="",
-            value=f"{self.ctx.author.mention} started a new Blackjack game",
+            value=f"{self.ctx.author.mention} started a new Blackjack game with **{self.bet:,} :coin:**",
             inline=False
         )
 
@@ -387,11 +387,18 @@ class BlackJack(commands.Cog):
         self.active_blackjack_users.discard(user_id)
 
     @commands.command(name="blackjack",aliases=["bj"])
-    async def bj(self, ctx, bet: int = None):
+    async def bj(self, ctx, bet=None):
         wallet, bank = await self.bot.db.get_balance(ctx.author.id)
 
         if bet is None:
             return await ctx.send("You must specify a bet amount")
+        if str(bet) == 'all':
+            bet = wallet
+        else:
+            try:
+                bet = int(bet)
+            except ValueError:
+                return await ctx.send("Please enter a valid number")
         if bet < 50:
             return await ctx.send("You must bet 50 or more")
         if wallet < bet:
