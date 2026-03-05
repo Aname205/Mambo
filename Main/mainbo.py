@@ -26,6 +26,7 @@ async def main():
         await bot.load_extension("Events.on_ready")
         await bot.load_extension("Commands.balance")
         await bot.load_extension("Commands.mambo")
+        await bot.load_extension("Commands.blackjack")
         await bot.start(token)
 
 asyncio.run(main())
