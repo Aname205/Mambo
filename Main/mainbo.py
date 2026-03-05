@@ -19,7 +19,7 @@ intents.members = True
 intents.message_content = True
 intents.guilds = True
 
-bot = commands.Bot(command_prefix='m', intents=intents)
+bot = commands.Bot(command_prefix=('m', 'M'), intents=intents, case_insensitive=True)
 
 async def main():
     async with bot:
@@ -30,4 +30,3 @@ async def main():
         await bot.start(token)
 
 asyncio.run(main())
-
