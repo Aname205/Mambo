@@ -19,7 +19,7 @@ intents.members = True
 intents.message_content = True
 intents.guilds = True
 
-bot = commands.Bot(command_prefix=('m', 'M'), intents=intents, case_insensitive=True)
+bot = commands.Bot(command_prefix=('m', 'M'), intents=intents, case_insensitive=True, help_command=None)
 
 async def main():
     async with bot:
@@ -28,6 +28,7 @@ async def main():
         await bot.load_extension("Commands.Currency.blackjack")
         await bot.load_extension("Commands.Misc.mambo")
         await bot.load_extension("Commands.Misc.mmb")
+        await bot.load_extension("Commands.Misc.help")
         await bot.start(token)
 
 asyncio.run(main())
