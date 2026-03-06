@@ -30,7 +30,7 @@ class ItemsDB:
                     mi.price       AS market_price,
                     mi.description AS market_description
                 FROM items i
-                    LEFT JOIN fishing_items fi ON i.id = fi.id
+                    LEFT JOIN fishing_items fi ON i.id = fi.item_id
                     LEFT JOIN market_items mi ON i.id = mi.id
                 WHERE LOWER(i.name) = LOWER(?)""", (item_name,)
             )
