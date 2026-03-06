@@ -19,6 +19,23 @@ class ItemsDB:
             )
             return await cursor.fetchone()
 
+    async def get_item_by_name(self, item_name):
+        async with self.db.cursor() as cursor:
+            await cursor.execute("""
+                SELECT i.id,
+                    i.name,
+                    i.emoji,
+                    fi.price       AS fishing_price,
+                    fi.description AS fishing_description,
+                    mi.price       AS market_price,
+                    mi.description AS market_description
+                FROM items i
+                    LEFT JOIN fishing_items fi ON i.id = fi.id
+                    LEFT JOIN market_items mi ON i.id = mi.id
+                WHERE LOWER(i.name) = LOWER(?)""", (item_name,)
+            )
+            return await cursor.fetchall()
+
     async def get_all_items(self):
         async with self.db.cursor() as cursor:
             await cursor.execute("SELECT * FROM items")
@@ -30,5 +47,20 @@ class ItemsDB:
                 "INSERT INTO items(name, emoji) VALUES(?, ?)",
                 (name, emoji)
             )
+            rowid = cursor.lastrowid
         await self.db.commit()
+        return rowid
 
+    async def clear_all_items(self):
+        async with self.db.cursor() as cursor:
+            await cursor.execute("PRAGMA foreign_keys = OFF")
+
+            await cursor.execute("DELETE FROM inventories")
+            await cursor.execute("DELETE FROM fishing_items")
+            await cursor.execute("DELETE FROM market_items")
+            await cursor.execute("DELETE FROM items")
+
+            await cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('items', 'inventories')")
+
+            await cursor.execute("PRAGMA foreign_keys = ON")
+        await self.db.commit()

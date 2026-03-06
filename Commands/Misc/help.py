@@ -10,14 +10,20 @@ class Help(commands.Cog):
         em = discord.Embed(title="**Command List**", color=discord.Color.blue())
 
         em.add_field(
-            name="**Currency**",
+            name="💰   **Currency**",
             value="balance, addbalance, subbalance, deposit, withdraw",
             inline=False
         )
 
         em.add_field(
-            name="**Currency game**",
-            value="blackjack",
+            name="🎮   **Currency game**",
+            value="blackjack, fish",
+            inline=False
+        )
+
+        em.add_field(
+            name="🏪   **Item management**",
+            value="items, iteminfo, clearitem, sell",
             inline=False
         )
 

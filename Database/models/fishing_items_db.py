@@ -15,3 +15,20 @@ class FishingItemsDB:
         )
         """)
         await self.db.commit()
+
+    async def get_fishing_items(self):
+        async with self.db.cursor() as cursor:
+            await cursor.execute("""
+                SELECT i.id, i.name, i.emoji, fi.fishing_rate
+                FROM items i
+                INNER JOIN fishing_items fi ON i.id = fi.id
+            """)
+            return await cursor.fetchall()
+
+    async def add_fishing_item(self, item_id, price, tier, fishing_rate, description=None):
+        async with self.db.cursor() as cursor:
+            await cursor.execute("""
+                INSERT INTO fishing_items(id, price, tier, fishing_rate, description)
+                VALUES(?, ?, ?, ?, ?)
+                """, (item_id, price, tier, fishing_rate, description or ""))
+            await self.db.commit()
