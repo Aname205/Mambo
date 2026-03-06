@@ -7,11 +7,12 @@ class FishingItemsDB:
             await cursor.execute("""
         CREATE TABLE IF NOT EXISTS fishing_items(
             id INTEGER PRIMARY KEY,
+            item_id INTEGER,
             price INTEGER,
             tier TEXT,
             fishing_rate REAL,
             description TEXT,
-            FOREIGN KEY (id) REFERENCES items(id)
+            FOREIGN KEY (item_id) REFERENCES items(id)
         )
         """)
         await self.db.commit()
