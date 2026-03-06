@@ -9,6 +9,7 @@ class InventoriesDB:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             item_id INTEGER,
+            is_lock BOOLEAN,
             FOREIGN KEY (item_id) REFERENCES items(id)
         )
         """)
