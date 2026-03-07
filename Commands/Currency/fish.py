@@ -36,6 +36,7 @@ class Fish(commands.Cog):
 
     # Fish
     @commands.command()
+    @commands.cooldown(1, 10, commands.BucketType.user)
     async def fish(self, ctx):
         pool = await self.bot.db.get_fishing_items()
 
@@ -53,6 +54,11 @@ class Fish(commands.Cog):
         await self.bot.db.add_to_inventory(ctx.author.id, item_id)
 
         await ctx.send(f"You reeled in **{item_tier} {item_name}** {item_emoji}")
+
+    @fish.error
+    async def fish_error(self, ctx, error):
+        if isinstance(error, commands.CommandOnCooldown):
+            await ctx.send(f"Try again in **{error.retry_after:.1f}s**.")
 
 async def setup(bot):
     await bot.add_cog(Fish(bot))
