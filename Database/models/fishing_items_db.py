@@ -20,7 +20,7 @@ class FishingItemsDB:
     async def get_fishing_items(self):
         async with self.db.cursor() as cursor:
             await cursor.execute("""
-                SELECT i.id, i.name, i.emoji, fi.fishing_rate
+                SELECT i.id, i.name, i.emoji,fi.tier , fi.fishing_rate
                 FROM items i
                 INNER JOIN fishing_items fi ON i.id = fi.item_id
             """)

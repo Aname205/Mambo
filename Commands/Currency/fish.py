@@ -9,11 +9,25 @@ class Fish(commands.Cog):
     # Initialize a pool
     async def create_pool(self):
         pool = [
-            ("Minnow", "🐟", 50, "common", 0.40, "A tiny fish"),
-            ("Bass", "🐠", 120, "common", 0.35, "A decent catch"),
-            ("Octopus", "🐙", 250, "uncommon", 0.15, "Squishy"),
-            ("Shark", "🦈", 500, "rare", 0.07, "Fierce predator"),
-            ("Kraken", "🦑", 2000, "legendary", 0.03, "Nightmare for those who sails"),
+            ("Minnow", "🐟", 25, "common", 150, "A tiny fish"),
+            ("Minnow", "🐟", 35, "uncommon", 100, "A tiny fish"),
+            ("Minnow", "🐟", 40, "rare", 75, "A tiny fish"),
+            ("Minnow", "🐟", 50, "epic", 50, "A tiny fish"),
+            ("Minnow", "🐟", 60, "legendary", 25, "A tiny fish"),
+            ("Bass", "🐠", 80, "common", 125, "A decent catch"),
+            ("Bass", "🐠", 90, "uncommon", 90, "A decent catch"),
+            ("Bass", "🐠", 100, "rare", 65, "A decent catch"),
+            ("Bass", "🐠", 120, "epic", 50, "A decent catch"),
+            ("Bass", "🐠", 150, "legendary", 20, "A decent catch"),
+            ("Octopus", "🐙", 200, "uncommon", 60, "Squishy"),
+            ("Octopus", "🐙", 250, "rare", 45, "Squishy"),
+            ("Octopus", "🐙", 350, "epic", 30, "Squishy"),
+            ("Octopus", "🐙", 500, "legendary", 15, "Squishy"),
+            ("Shark", "🦈", 400, "rare", 35, "Fierce predator"),
+            ("Shark", "🦈", 600, "epic", 25, "Fierce predator"),
+            ("Shark", "🦈", 900, "legendary", 10, "Fierce predator"),
+            ("Kraken", "🦑", 2000, "epic", 25, "Nightmare for those who sails"),
+            ("Kraken", "🦑", 4500, "legendary", 5, "Nightmare for those who sails"),
         ]
 
         for name, emoji, price, tier, fishing_rate, description in pool:
@@ -32,12 +46,13 @@ class Fish(commands.Cog):
         ids = [row[0] for row in pool]
         names = [row[1] for row in pool]
         emojis = [row[2] for row in pool]
-        weights = [float(row[3]) for row in pool]
+        tier = [row[3] for row in pool]
+        weights = [float(row[4]) for row in pool]
         chosen = random.choices(range(len(pool)), weights=weights, k=1)[0]
-        item_id, item_name, item_emoji = ids[chosen], names[chosen], emojis[chosen]
+        item_id, item_name, item_emoji, item_tier = ids[chosen], names[chosen], emojis[chosen], tier[chosen]
         await self.bot.db.add_to_inventory(ctx.author.id, item_id)
 
-        await ctx.send(f"You reeled in **{item_name}** {item_emoji}")
+        await ctx.send(f"You reeled in **{item_tier} {item_name}** {item_emoji}")
 
 async def setup(bot):
     await bot.add_cog(Fish(bot))
