@@ -173,14 +173,10 @@ class TriviaView(discord.ui.View):
             color = discord.Color.blurple()
 
         em = discord.Embed(
-            title="🧠 Trivia Time!",
+            description=f"## {self.question}",
             color=color
         )
-        em.add_field(
-            name="",
-            value=f"**{self.question}**",
-            inline=False
-        )
+        em.set_author(name=f"{self.ctx.author.name}", icon_url=self.ctx.author.display_avatar.url)
         em.add_field(
             name="Category",
             value=self.category,
@@ -200,7 +196,6 @@ class TriviaView(discord.ui.View):
         if result_text:
             em.add_field(name="", value=result_text, inline=False)
 
-        em.set_footer(text=f"Requested by {self.ctx.author.name}", icon_url=self.ctx.author.display_avatar.url)
 
         return em
 
