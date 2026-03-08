@@ -8,6 +8,7 @@ class MarketItemsDB:
         CREATE TABLE IF NOT EXISTS market_items(
             id INTEGER PRIMARY KEY,
             price INTEGER,
+            tier TEXT,
             description TEXT,
             FOREIGN KEY (id) REFERENCES items(id)
         )

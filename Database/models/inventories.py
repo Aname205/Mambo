@@ -18,10 +18,11 @@ class InventoriesDB:
     async def get_inventory(self, user_id):
         async with self.db.cursor() as cursor:
             await cursor.execute("""
-                SELECT i.id, i.name, i.emoji, fi.tier, fi.price, mi.price, fi.description, mi.description, i.is_locked
+                SELECT i.id, i.name, i.emoji, fi.tier, fi.price, mi.price, 
+                        fi.description, mi.description, inv.is_lock
                 FROM inventories inv
                     JOIN items i ON inv.item_id = i.id
-                    LEFT JOIN fishing_items fi ON i.id = fi.id
+                    LEFT JOIN fishing_items fi ON i.id = fi.item_id
                     LEFT JOIN market_items mi ON i.id = mi.id
                 WHERE inv.user_id = ? """, (user_id,)
             )
@@ -51,8 +52,14 @@ class InventoriesDB:
             await cursor.execute(""" 
                 DELETE FROM inventories 
                 WHERE user_id = ? 
-                AND item_id IN (
-                    SELECT id FROM items WHERE is_locked = 0
-                )""", (user_id,)
+                AND is_lock = 0""", (user_id,)
             )
             await self.db.commit()
+
+    async def set_item_lock(self, item_id, is_locked):
+        async with self.db.cursor() as cursor:
+            await cursor.execute(
+                "UPDATE inventories SET is_lock = ? WHERE id = ?",
+                (1 if is_locked else 0, item_id)
+            )
+        await self.db.commit()

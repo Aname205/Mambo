@@ -31,29 +31,32 @@ class Fish(commands.Cog):
         ]
 
         for name, emoji, price, tier, fishing_rate, description in pool:
-            item_id = await self.bot.db.add_item(name, emoji)
+            item_id = await self.bot.db.add_item(name, emoji, 'fish')
             await self.bot.db.add_fishing_item(item_id, price, tier, fishing_rate, description)
 
     # Fish
     @commands.command()
-    @commands.cooldown(1, 10, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def fish(self, ctx):
-        pool = await self.bot.db.get_fishing_items()
-
-        if not pool:
-            await self.create_pool()
+        try:
             pool = await self.bot.db.get_fishing_items()
 
-        ids = [row[0] for row in pool]
-        names = [row[1] for row in pool]
-        emojis = [row[2] for row in pool]
-        tier = [row[3] for row in pool]
-        weights = [float(row[4]) for row in pool]
-        chosen = random.choices(range(len(pool)), weights=weights, k=1)[0]
-        item_id, item_name, item_emoji, item_tier = ids[chosen], names[chosen], emojis[chosen], tier[chosen]
-        await self.bot.db.add_to_inventory(ctx.author.id, item_id)
+            if not pool:
+                await self.create_pool()
+                pool = await self.bot.db.get_fishing_items()
 
-        await ctx.send(f"You reeled in **{item_tier} {item_name}** {item_emoji}")
+            ids = [row[0] for row in pool]
+            names = [row[1] for row in pool]
+            emojis = [row[2] for row in pool]
+            tier = [row[3] for row in pool]
+            weights = [float(row[4]) for row in pool]
+            chosen = random.choices(range(len(pool)), weights=weights, k=1)[0]
+            item_id, item_name, item_emoji, item_tier = ids[chosen], names[chosen], emojis[chosen], tier[chosen]
+            await self.bot.db.add_to_inventory(ctx.author.id, item_id)
+
+            await ctx.send(f"You reeled in **{item_tier} {item_name}** {item_emoji}")
+        except Exception as e:
+            await ctx.send(f"Error: {e}")
 
     @fish.error
     async def fish_error(self, ctx, error):

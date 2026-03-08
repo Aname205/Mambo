@@ -12,7 +12,7 @@ class Items(commands.Cog):
 
         em = discord.Embed(title="Items", color=discord.Color.green())
 
-        for item_id, item_name, item_emoji in items:
+        for item_id, item_name, item_emoji, item_type in items:
             em.add_field(
                 name=f"{item_name} {item_emoji}",
                 value=f"ID: {item_id}",
@@ -27,22 +27,43 @@ class Items(commands.Cog):
         if item_name is None:
             return await ctx.send("Please name the item you are looking for")
 
-        item = await self.bot.db.get_item_by_name(item_name)
+        try:
+            items = await self.bot.db.get_item_by_name(item_name)
 
-        if not item:
-            return await ctx.send("Item not found")
+            if not items:
+                return await ctx.send("Item not found")
 
-        for id, name, emoji, fishing_price, fishing_description, market_price, market_description in item:
-            em = discord.Embed(title=f"**{item_name}** {emoji}", color=discord.Color.yellow())
+            first_item = items[0]
+            _, name, emoji, _, fishing_description, _, market_description, _ = first_item
+            description = fishing_description if fishing_description is not None else market_description
 
-            if fishing_price is not None:
-                em.add_field(name="Price:", value=f"{fishing_price} 🪙", inline=False)
-                em.add_field(name="Description:", value=fishing_description, inline=False)
-            else:
-                em.add_field(name="Price:", value=f"{market_price} 🪙", inline=False)
-                em.add_field(name="Description:", value=market_description, inline=False)
+            em = discord.Embed(
+                title=f"{name} {emoji}",
+                color=discord.Color.yellow()
+            )
 
-        return await ctx.send(embed=em)
+            em.set_footer(text=description)
+
+            # Collect all tiers and prices
+            tiers_list = []
+            prices_list = []
+            
+            for item_data in items:
+                id, name, emoji, fishing_price, _, market_price, _, tier = item_data
+                
+                if tier:
+                    price = fishing_price if fishing_price is not None else market_price
+                    
+                    tiers_list.append(tier)
+                    prices_list.append(f"{price} 🪙")
+
+            if tiers_list:
+                em.add_field(name="Tiers", value="\n".join(tiers_list), inline=True)
+                em.add_field(name="Prices", value="\n".join(prices_list), inline=True)
+
+            return await ctx.send(embed=em)
+        except Exception as e:
+            return await ctx.send(f"Error: {e}")
 
     # Clear all items in the database
     @commands.command()
