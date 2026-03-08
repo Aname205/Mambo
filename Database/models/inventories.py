@@ -9,7 +9,7 @@ class InventoriesDB:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             item_id INTEGER,
-            is_lock BOOLEAN,
+            is_lock BOOLEAN DEFAULT 0,
             FOREIGN KEY (item_id) REFERENCES items(id)
         )
         """)
@@ -18,7 +18,7 @@ class InventoriesDB:
     async def get_inventory(self, user_id):
         async with self.db.cursor() as cursor:
             await cursor.execute("""
-                SELECT i.id, i.name, i.emoji, fi.tier, fi.price, mi.price, 
+                SELECT inv.id, i.id, i.name, i.emoji, fi.tier, fi.price, mi.price, 
                         fi.description, mi.description, inv.is_lock
                 FROM inventories inv
                     JOIN items i ON inv.item_id = i.id
@@ -31,8 +31,8 @@ class InventoriesDB:
     async def add_to_inventory(self, user_id, item_id):
         async with self.db.cursor() as cursor:
             await cursor.execute("""
-                INSERT INTO inventories(user_id, item_id)
-                VALUES(?,?) """, (user_id, item_id)
+                INSERT INTO inventories(user_id, item_id, is_lock)
+                VALUES(?,?,0) """, (user_id, item_id)
             )
             await self.db.commit()
 

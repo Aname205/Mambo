@@ -82,5 +82,5 @@ class Database:
         return await self.inventories.remove_all_from_inventory(user_id)
 
     async def set_item_lock(self, item_id, is_locked):
-        return await self.items.set_item_lock(item_id, is_locked)
+        return await self.inventories.set_item_lock(item_id, is_locked)
 
