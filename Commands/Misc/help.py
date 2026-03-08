@@ -17,7 +17,7 @@ class Help(commands.Cog):
 
         em.add_field(
             name="🎮   **Currency game**",
-            value="blackjack, fish",
+            value="blackjack, fish, trivia, triviacategories",
             inline=False
         )
 
