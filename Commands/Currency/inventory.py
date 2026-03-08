@@ -21,13 +21,14 @@ class InventoryView(discord.ui.View):
         end = start + self.per_page
 
         for i, (item_id, item_name, item_emoji, item_tier, fishing_price, market_price,
-             fishinh_description, market_description) in enumerate(self.inventory[start:end], start=start+1):
+             fishing_description, market_description, is_locked) in enumerate(self.inventory[start:end], start=start+1):
 
             price = fishing_price if fishing_price is not None else market_price
-            description = fishinh_description if fishinh_description is not None else market_description
+            description = fishing_description if fishing_description is not None else market_description
+            lock_icon = "🔒" if is_locked else ""
 
             em.add_field(
-                name=f"[{i}] {item_tier} {item_name} {item_emoji}",
+                name=f"[{i}] {item_tier} {item_name} {item_emoji} {lock_icon}",
                 value=f"Price: {price} 🪙 {description}",
                 inline=False
             )
@@ -93,12 +94,17 @@ class Inventory(commands.Cog):
         if str(item_name).lower() == 'all' and item_amount is None:
             amount = 0
             item_count = 0
-            for id, name, emoji, tier, fishing_price, marker_price, _, _ in inventory:
+            for id, name, emoji, tier, fishing_price, marker_price, _, _, is_locked in inventory:
+                if is_locked:
+                    continue  # Skip locked items
                 price = fishing_price if fishing_price is not None else marker_price
                 if price is None:
                     continue
                 amount += price
                 item_count += 1
+
+            if item_count == 0:
+                return await ctx.send("You don't have any items to sell")
 
             await self.bot.db.update_wallet(ctx.author.id, amount)
             await self.bot.db.remove_all_from_inventory(ctx.author.id)
@@ -113,25 +119,33 @@ class Inventory(commands.Cog):
 
             row = inventory[index]
 
-            item_id, name, emoji, tier, fishing_price, market_price, _, _ = row
+            item_id, name, emoji, tier, fishing_price, market_price, _, _, is_locked = row
+            
+            if is_locked:
+                return await ctx.send(f"**{tier} {name}** {emoji} is locked and cannot be sold")
+            
             price = fishing_price if fishing_price is not None else market_price
 
             await self.bot.db.update_wallet(ctx.author.id, price)
             await self.bot.db.remove_from_inventory(ctx.author.id, item_id, 1)
 
-            return await ctx.send(f"You sold {1} **{tier} {name}** {emoji} for {price} 🪙" )
+            return await ctx.send(f"You sold 1 **{tier} {name}** {emoji} for {price} 🪙" )
 
         #Selling items by name
         normalized_name = item_name.lower()
 
         matching_rows = [
-            (id, name, emoji, tier, fishing_price, market_price)
-            for id, name, emoji, tier, fishing_price, market_price in inventory
+            (id, name, emoji, tier, fishing_price, market_price, is_locked)
+            for id, name, emoji, tier, fishing_price, market_price, _, _, is_locked in inventory
             if name.lower() == normalized_name
         ]
 
         if not matching_rows:
             return await ctx.send("You don't have that item in your inventory.")
+
+        # Check if item is locked
+        if matching_rows[0][6]:  # is_locked is at index 6
+            return await ctx.send(f"**{matching_rows[0][3]} {matching_rows[0][1]}** {matching_rows[0][2]} is locked and cannot be sold. 🔒")
 
         # Determine how many to sell
         if item_amount is None:
@@ -146,7 +160,7 @@ class Inventory(commands.Cog):
             return await ctx.send(f"You don't have enough {item_name}.")
 
         # All copies share the same price, get it from the first row
-        id, name, emoji, tier, fishing_price, market_price = matching_rows[0]
+        id, name, emoji, tier, fishing_price, market_price, is_locked = matching_rows[0]
         price = fishing_price if fishing_price is not None else market_price
 
         amount = int(price) * quantity_to_sell
@@ -156,7 +170,55 @@ class Inventory(commands.Cog):
 
         return await ctx.send(f"You sold {quantity_to_sell} **{tier} {name}** {emoji} for {amount}")
 
+    # Lock/Unlock item by index
+    @commands.command()
+    async def lock(self, ctx, index: int = None):
+        if index is None:
+            return await ctx.send("Please provide an item index to lock")
 
+        inventory = await self.bot.db.get_inventory(ctx.author.id)
+
+        if not inventory:
+            return await ctx.send("You don't have any items")
+
+        index -= 1  # Convert to 0-based index
+
+        if index < 0 or index >= len(inventory):
+            return await ctx.send("Invalid item index.")
+
+        row = inventory[index]
+        item_id, name, emoji, tier, _, _, _, _, is_locked = row
+
+        if is_locked:
+            return await ctx.send(f"**{tier} {name}** {emoji} is already locked")
+
+        await self.bot.db.set_item_lock(item_id, True)
+        await ctx.send(f"**{tier} {name}** {emoji} has been locked")
+
+    # Unlock item by index
+    @commands.command()
+    async def unlock(self, ctx, index: int = None):
+        if index is None:
+            return await ctx.send("Please provide an item index to unlock")
+
+        inventory = await self.bot.db.get_inventory(ctx.author.id)
+
+        if not inventory:
+            return await ctx.send("You don't have any items")
+
+        index -= 1  # Convert to 0-based index
+
+        if index < 0 or index >= len(inventory):
+            return await ctx.send("Invalid item index")
+
+        row = inventory[index]
+        item_id, name, emoji, tier, _, _, _, _, is_locked = row
+
+        if not is_locked:
+            return await ctx.send(f"**{tier} {name}** {emoji} is already unlocked")
+
+        await self.bot.db.set_item_lock(item_id, False)
+        await ctx.send(f"**{tier} {name}** {emoji} has been unlocked")
 
 async def setup(bot):
     await bot.add_cog(Inventory(bot))
