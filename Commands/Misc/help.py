@@ -27,6 +27,12 @@ class Help(commands.Cog):
             inline=False
         )
 
+        em.add_field(
+            name="🎉   **Fun**",
+            value="waifu",
+            inline=False
+        )
+
         await ctx.send(embed=em)
 
 async def setup(bot):

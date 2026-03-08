@@ -33,6 +33,7 @@ async def main():
         await bot.load_extension("Commands.Misc.mambo")
         await bot.load_extension("Commands.Misc.mmb")
         await bot.load_extension("Commands.Misc.help")
+        await bot.load_extension("Commands.Misc.waifu")
         await bot.start(token)
 
 asyncio.run(main())
