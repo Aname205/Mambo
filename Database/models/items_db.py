@@ -7,9 +7,7 @@ class ItemsDB:
             await cursor.execute("""CREATE TABLE IF NOT EXISTS items(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT,
-                emoji TEXT,
-                item_type TEXT DEFAULT 'fish',
-                is_locked INTEGER DEFAULT 0
+                emoji TEXT
             )""")
         await self.db.commit()
 
@@ -43,11 +41,11 @@ class ItemsDB:
             await cursor.execute("SELECT * FROM items")
             return await cursor.fetchall()
 
-    async def add_item(self, name, emoji, item_type='fish', is_locked=False):
+    async def add_item(self, name, emoji):
         async with self.db.cursor() as cursor:
             await cursor.execute(
-                "INSERT INTO items(name, emoji, item_type, is_locked) VALUES(?, ?, ?, ?)",
-                (name, emoji, item_type, 1 if is_locked else 0)
+                "INSERT INTO items(name, emoji) VALUES(?, ?)",
+                (name, emoji)
             )
             rowid = cursor.lastrowid
         await self.db.commit()
@@ -65,12 +63,4 @@ class ItemsDB:
             await cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('items', 'inventories')")
 
             await cursor.execute("PRAGMA foreign_keys = ON")
-        await self.db.commit()
-
-    async def set_item_lock(self, item_id, is_locked):
-        async with self.db.cursor() as cursor:
-            await cursor.execute(
-                "UPDATE items SET is_locked = ? WHERE id = ?",
-                (1 if is_locked else 0, item_id)
-            )
         await self.db.commit()

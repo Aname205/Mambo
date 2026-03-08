@@ -18,7 +18,7 @@ class InventoriesDB:
     async def get_inventory(self, user_id):
         async with self.db.cursor() as cursor:
             await cursor.execute("""
-                SELECT i.id, i.name, i.emoji, fi.tier, fi.price, mi.price, fi.description, mi.description, i.is_locked
+                SELECT i.id, i.name, i.emoji, fi.tier, fi.price, mi.price, fi.description, mi.description
                 FROM inventories inv
                     JOIN items i ON inv.item_id = i.id
                     LEFT JOIN fishing_items fi ON i.id = fi.id
@@ -50,9 +50,6 @@ class InventoriesDB:
         async with self.db.cursor() as cursor:
             await cursor.execute(""" 
                 DELETE FROM inventories 
-                WHERE user_id = ? 
-                AND item_id IN (
-                    SELECT id FROM items WHERE is_locked = 0
-                )""", (user_id,)
+                WHERE user_id = ? """, (user_id,)
             )
             await self.db.commit()

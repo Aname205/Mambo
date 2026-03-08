@@ -57,8 +57,8 @@ class Database:
     async def get_all_items(self):
         return await self.items.get_all_items()
 
-    async def add_item(self, name, emoji, item_type='fish', is_locked=False):
-        return await self.items.add_item(name, emoji, item_type, is_locked)
+    async def add_item(self, name, emoji):
+        return await self.items.add_item(name, emoji)
 
     async def get_inventory(self, user_id):
         return await self.inventories.get_inventory(user_id)
@@ -80,7 +80,4 @@ class Database:
 
     async def remove_all_from_inventory(self, user_id):
         return await self.inventories.remove_all_from_inventory(user_id)
-
-    async def set_item_lock(self, item_id, is_locked):
-        return await self.items.set_item_lock(item_id, is_locked)
 
