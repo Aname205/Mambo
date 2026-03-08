@@ -17,13 +17,19 @@ class Help(commands.Cog):
 
         em.add_field(
             name="🎮   **Currency game**",
-            value="blackjack, fish",
+            value="blackjack, fish, trivia, triviacategories",
             inline=False
         )
 
         em.add_field(
             name="🏪   **Item management**",
             value="items, iteminfo, clearitem, sell",
+            inline=False
+        )
+
+        em.add_field(
+            name="🎉   **Fun**",
+            value="waifu",
             inline=False
         )
 
