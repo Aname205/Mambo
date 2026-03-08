@@ -13,9 +13,9 @@ class InventoryView(discord.ui.View):
     # Update embed after hitting a button
     def update_embed(self, ctx):
         em = discord.Embed(
+            title=f"{ctx.author.name}'s Inventory",
             color=discord.Color.green()
         )
-        em.set_author(name=f"{ctx.author.name}'s Inventory", icon_url=ctx.author.display_avatar.url)
 
         start = self.page * self.per_page
         end = start + self.per_page
@@ -69,10 +69,10 @@ class Inventory(commands.Cog):
 
         if not inventory:
             em = discord.Embed(
+                title=f"{ctx.author.name}'s Inventory",
                 description="You don't have any items.",
                 color=discord.Color.green()
             )
-            em.set_author(name=f"{ctx.author.name}'s Inventory", icon_url=ctx.author.display_avatar.url)
             return await ctx.send(embed=em)
 
         view = InventoryView(ctx, inventory)
