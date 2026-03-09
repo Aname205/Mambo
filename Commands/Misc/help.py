@@ -11,7 +11,7 @@ class Help(commands.Cog):
 
         em.add_field(
             name="💰   **Currency**",
-            value="balance, addbalance, subbalance, deposit, withdraw",
+            value="balance, addbalance, subbalance, deposit, withdraw, daily",
             inline=False
         )
 
