@@ -17,6 +17,7 @@ intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
 intents.guilds = True
+intents.reactions = True
 
 bot = commands.Bot(command_prefix=('m', 'M'), intents=intents, case_insensitive=True, help_command=None)
 
@@ -34,6 +35,7 @@ async def main():
         await bot.load_extension("Commands.Misc.mmb")
         await bot.load_extension("Commands.Misc.help")
         await bot.load_extension("Commands.Misc.waifu")
+        await bot.load_extension("Commands.Currency.highlow")
         await bot.start(token)
 
 asyncio.run(main())
