@@ -36,7 +36,7 @@ class Fish(commands.Cog):
 
     # Fish
     @commands.command()
-    @commands.cooldown(1, 5, commands.BucketType.user)
+    @commands.cooldown(1, 1, commands.BucketType.user)
     async def fish(self, ctx):
         try:
             pool = await self.bot.db.get_fishing_items()
