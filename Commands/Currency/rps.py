@@ -3,7 +3,7 @@ import random
 import asyncio
 from discord.ext import commands
 
-class MRPS(commands.Cog):
+class RPS(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.active_games = set()
@@ -142,4 +142,4 @@ class MRPS(commands.Cog):
 
 
 async def setup(bot):
-    await bot.add_cog(MRPS(bot))
+    await bot.add_cog(RPS(bot))
