@@ -11,6 +11,7 @@ class EquipmentsDB:
                     equipment_type TEXT NOT NULL CHECK(equipment_type IN ('weapon', 'armor', 'accessory')),
                     damage INTEGER DEFAULT 0,
                     armor INTEGER DEFAULT 0,
+                    speed INTEGER DEFAULT 0,
                     break_force INTEGER DEFAULT 0,
                     tier TEXT DEFAULT 'common' CHECK(tier IN ('common','uncommon','rare','epic','legendary')),
                     price INTEGER DEFAULT 0,
@@ -28,6 +29,7 @@ class EquipmentsDB:
             equipment_type,
             damage=0,
             armor=0,
+            speed=0,
             break_force=0,
             tier="common",
             price=0,
@@ -41,18 +43,20 @@ class EquipmentsDB:
                     equipment_type, 
                     damage, 
                     armor,
+                    speed,
                     break_force, 
                     tier, 
                     price, 
                     critical_chance, 
                     dodge_chance
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         item_id,
                         equipment_type,
                         damage,
                         armor,
+                        speed,
                         break_force,
                         tier,
                         price,
@@ -100,15 +104,16 @@ class EquipmentsDB:
     async def generate_equipments(self, items_db):
         try:
             base_equipments = [
-                ("Stick", "🏑", "weapon",  1, 0, 1, 20, 0, 0),
-                ("Rag", "👕", "armor", 0, 1, 0, 20, 0, 0),
-                ("Wooden Sword", "🗡️", "weapon", 3, 0 , 1, 50, 0.01, 0)
+                ("Stick", "🏑", "weapon",  1, 0, 1, 1, 20, 0, 0),
+                ("Rag", "👕", "armor", 0, 1, 0, 0, 20, 0, 0),
+                ("Wooden Sword", "🗡️", "weapon", 3, 0, 1, 2, 50, 0.01, 0)
             ]
 
             TIERS = {
                 "common": {
                     "damage_mult": 1,
                     "armor_mult": 1,
+                    "speed_mult": 1,
                     "break_force_mult": 1,
                     "price_mult": 1,
                     "critical_chance_mult": 1,
@@ -118,6 +123,7 @@ class EquipmentsDB:
                 "uncommon": {
                     "damage_mult": 1.1,
                     "armor_mult": 1.05,
+                    "speed_mult": 1.1,
                     "break_force_mult": 1.1,
                     "price_mult": 1.1,
                     "critical_chance_mult": 1,
@@ -127,6 +133,7 @@ class EquipmentsDB:
                 "rare": {
                     "damage_mult": 1.2,
                     "armor_mult": 1.1,
+                    "speed_mult": 1.2,
                     "break_force_mult": 1.2,
                     "price_mult": 1.15,
                     "critical_chance_mult": 1.05,
@@ -136,6 +143,7 @@ class EquipmentsDB:
                 "epic": {
                     "damage_mult": 1.35,
                     "armor_mult": 1.2,
+                    "speed_mult": 1.3,
                     "break_force_mult": 1.3,
                     "price_mult": 1.25,
                     "critical_chance_mult": 1.1,
@@ -145,6 +153,7 @@ class EquipmentsDB:
                 "legendary": {
                     "damage_mult": 1.5,
                     "armor_mult": 1.4,
+                    "speed_mult": 1.5,
                     "break_force_mult": 1.5,
                     "price_mult": 1.4,
                     "critical_chance_mult": 1.2,
@@ -154,7 +163,7 @@ class EquipmentsDB:
 
             valid_keys = []
 
-            for (name, emoji, equipment_type, base_damage, base_armor, base_break_force, base_price,
+            for (name, emoji, equipment_type, base_damage, base_armor, base_speed, base_break_force, base_price,
                 base_critical_chance, base_dodge_chance) in base_equipments:
 
                 item_id = await items_db.get_or_create_item(name, emoji, "equipment")
@@ -162,6 +171,7 @@ class EquipmentsDB:
                 for tier, mult in TIERS.items():
                     damage = int(base_damage * mult["damage_mult"])
                     armor = int(base_armor * mult["armor_mult"])
+                    speed = int(base_speed * mult["speed_mult"])
                     break_force = int(base_break_force * mult["break_force_mult"])
                     price = int(base_price * mult["price_mult"])
                     critical_chance = float(base_critical_chance * mult["critical_chance_mult"])
@@ -172,6 +182,7 @@ class EquipmentsDB:
                         equipment_type,
                         damage,
                         armor,
+                        speed,
                         break_force,
                         tier,
                         price,

@@ -34,6 +34,7 @@ class ItemsDB:
                     COALESCE(fi.tier, mi.tier, em.tier) AS item_tier,
                     em.damage,
                     em.armor,
+                    em.speed,
                     em.break_force,
                     em.price,
                     em.critical_chance,

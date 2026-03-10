@@ -37,7 +37,7 @@ class Items(commands.Cog):
             (_, name, emoji, item_type, _,
              fishing_description, _,
              market_description, _,
-             equipment_damage, equipment_armor, equipment_break_force, equipment_price, equipment_critical_chance, equipment_dodge_chance
+             equipment_damage, equipment_armor, equipment_speed, equipment_break_force, equipment_price, equipment_critical_chance, equipment_dodge_chance
              ) = first_item
             description = fishing_description if fishing_description is not None else market_description or ""
 
@@ -54,6 +54,7 @@ class Items(commands.Cog):
             equipment_tiers_list = []
             equipment_damage_list = []
             equipment_armor_list = []
+            equipment_speed_list = []
             equipment_break_force_list = []
             equipment_prices_list = []
             equipment_critical_chance_list = []
@@ -61,7 +62,7 @@ class Items(commands.Cog):
             
             for item_data in items:
                 id, name, emoji, item_type, fishing_price, _, market_price, _, tier, \
-                equipment_damage, equipment_armor, equipment_break_force, equipment_price, equipment_critical_chance, equipment_dodge_chance \
+                equipment_damage, equipment_armor, equipment_speed, equipment_break_force, equipment_price, equipment_critical_chance, equipment_dodge_chance \
                     = item_data
                 
                 if item_type == 'fish':
@@ -72,6 +73,7 @@ class Items(commands.Cog):
                     equipment_tiers_list.append(tier)
                     equipment_damage_list.append(f"{equipment_damage}")
                     equipment_armor_list.append(f"{equipment_armor}")
+                    equipment_speed_list.append(f"{equipment_speed}")
                     equipment_break_force_list.append(f"{equipment_break_force}")
                     equipment_prices_list.append(f"{equipment_price} 🪙")
                     equipment_critical_chance_list.append(f"{equipment_critical_chance * 100:.0f}%")
@@ -85,6 +87,7 @@ class Items(commands.Cog):
                 em.add_field(name="Tiers", value="\n".join(equipment_tiers_list), inline=True)
                 em.add_field(name="Damage 🗡️", value="\n".join(equipment_damage_list), inline=True)
                 em.add_field(name="Armor ⚜", value="\n".join(equipment_armor_list), inline=True)
+                em.add_field(name="Speed 💨", value="\n".join(equipment_speed_list), inline=True)
                 em.add_field(name="Break Force ⚡", value="\n".join(equipment_break_force_list), inline=True)
                 em.add_field(name="Prices", value="\n".join(equipment_prices_list), inline=True)
                 em.add_field(name="Critical Chance 💥", value="\n".join(equipment_critical_chance_list), inline=True)
