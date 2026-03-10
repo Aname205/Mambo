@@ -90,8 +90,8 @@ class Database:
     async def get_inventory(self, user_id):
         return await self.inventories.get_inventory(user_id)
 
-    async def add_to_inventory(self, user_id, item_id):
-        return await self.inventories.add_to_inventory(user_id, item_id)
+    async def add_to_inventory(self, user_id, item_id, item_tier):
+        return await self.inventories.add_to_inventory(user_id, item_id, item_tier)
 
     async def remove_from_inventory(self, user_id, item_id, amount):
         return await self.inventories.remove_from_inventory(user_id, item_id, amount)

@@ -13,14 +13,8 @@ class Fish(commands.Cog):
         try:
             pool = await self.bot.db.get_fishing_items()
 
-            ids = [row[0] for row in pool]
-            names = [row[1] for row in pool]
-            emojis = [row[2] for row in pool]
-            tier = [row[3] for row in pool]
-            weights = [float(row[4]) for row in pool]
-            chosen = random.choices(range(len(pool)), weights=weights, k=1)[0]
-            item_id, item_name, item_emoji, item_tier = ids[chosen], names[chosen], emojis[chosen], tier[chosen]
-            await self.bot.db.add_to_inventory(ctx.author.id, item_id)
+            item_id, item_name, item_emoji, item_tier, _ = random.choices(pool, weights=[row[4] for row in pool], k=1)[0]
+            await self.bot.db.add_to_inventory(ctx.author.id, item_id, item_tier)
 
             await ctx.send(f"You reeled in **{item_tier} {item_name}** {item_emoji}")
         except Exception as e:

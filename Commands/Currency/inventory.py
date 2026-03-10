@@ -64,8 +64,8 @@ class InventoryView(discord.ui.View):
         start = self.page * self.per_page
         end = start + self.per_page
 
-        for i, (inv_id, item_id, item_name, item_emoji, item_tier, fishing_price, market_price,
-             fishing_description, market_description, is_locked) in enumerate(self.inventory[start:end], start=start):
+        for i, (inv_id, item_id, item_name, item_emoji, item_tier, fishing_price,
+                market_price, is_locked) in enumerate(self.inventory[start:end], start=start):
 
             left_pointer = "⭐ " if i == self.selected else ""
 
