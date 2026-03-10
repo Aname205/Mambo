@@ -86,6 +86,10 @@ class Database:
     async def ensure_fishing_pool(self):
         return await self.fishing_items.ensure_pool(self.items)
 
+    # Market shortcuts
+    async def get_market_equipments(self):
+        return await self.market_items.get_market_equipments()
+
     # Inventory shortcuts
     async def get_inventory(self, user_id):
         return await self.inventories.get_inventory(user_id)
@@ -124,7 +128,8 @@ class Database:
             tier="common",
             price=0,
             critical_chance=0,
-            dodge_chance=0
+            dodge_chance=0,
+            market_only=0
     ):
         return await self.equipments.add_equipment(
             item_id,
@@ -136,7 +141,8 @@ class Database:
             tier,
             price,
             critical_chance,
-            dodge_chance
+            dodge_chance,
+            market_only
         )
 
     async def get_equipment(self, item_id):

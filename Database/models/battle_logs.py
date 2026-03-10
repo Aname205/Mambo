@@ -17,7 +17,7 @@ class BattleLogsDB:
                     turn_number INTEGER DEFAULT 1,
                     battle_status TEXT DEFAULT 'active' CHECK(battle_status IN ('active', 'won', 'lost', 'fled')),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES players(user_id),
+                    FOREIGN KEY (user_id) REFERENCES players(id),
                     FOREIGN KEY (monster_id) REFERENCES monsters(monster_id)
                 )             
             """)

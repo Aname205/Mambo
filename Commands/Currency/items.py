@@ -86,11 +86,11 @@ class Items(commands.Cog):
             if equipment_tiers_list:
                 em.add_field(name="Tiers", value="\n".join(equipment_tiers_list), inline=True)
                 em.add_field(name="Damage 🗡️", value="\n".join(equipment_damage_list), inline=True)
-                em.add_field(name="Armor ⚜", value="\n".join(equipment_armor_list), inline=True)
+                em.add_field(name="Armor 🛡", value="\n".join(equipment_armor_list), inline=True)
                 em.add_field(name="Speed 💨", value="\n".join(equipment_speed_list), inline=True)
                 em.add_field(name="Break Force ⚡", value="\n".join(equipment_break_force_list), inline=True)
                 em.add_field(name="Prices", value="\n".join(equipment_prices_list), inline=True)
-                em.add_field(name="Critical Chance 💥", value="\n".join(equipment_critical_chance_list), inline=True)
+                em.add_field(name="Critical Chance 🎯", value="\n".join(equipment_critical_chance_list), inline=True)
                 em.add_field(name="Dodge Chance 👟", value="\n".join(equipment_dodge_chance_list), inline=True)
 
             return await ctx.send(embed=em)

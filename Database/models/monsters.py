@@ -13,7 +13,7 @@ class MonsterDB:
                     armor INTEGER DEFAULT 0,
                     tenacity INTEGER DEFAULT 0,
                     speed INTEGER DEFAULT 5,
-                    level INTERGER DEFAULT 1,
+                    level INTEGER DEFAULT 1,
                     currency_reward INTEGER DEFAULT 0,
                     monster_modifier TEXT DEFAULT 'normal',
                     loot_table_id INTEGER
@@ -41,7 +41,7 @@ class MonsterDB:
                     tenacity, speed, level, currency_reward,
                     monster_modifier, loot_table_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 name, health, damage, armor,
                 tenacity, speed, level, currency_reward,

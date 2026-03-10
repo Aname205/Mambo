@@ -17,6 +17,7 @@ class EquipmentsDB:
                     price INTEGER DEFAULT 0,
                     critical_chance REAL DEFAULT 0,
                     dodge_chance REAL DEFAULT 0,
+                    market_only BOOLEAN DEFAULT 0,
                     UNIQUE(item_id, tier),
                     FOREIGN KEY (item_id) REFERENCES items(id)
                 )
@@ -34,11 +35,12 @@ class EquipmentsDB:
             tier="common",
             price=0,
             critical_chance=0,
-            dodge_chance=0
+            dodge_chance=0,
+            market_only=False
     ):
         async with self.db.cursor() as cursor:
             await cursor.execute("""
-                INSERT OR REPLACE INTO equipments(
+                INSERT INTO equipments(
                     item_id, 
                     equipment_type, 
                     damage, 
@@ -48,10 +50,22 @@ class EquipmentsDB:
                     tier, 
                     price, 
                     critical_chance, 
-                    dodge_chance
+                    dodge_chance,
+                    market_only
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (item_id, tier)
+                DO UPDATE SET
+                    equipment_type = excluded.equipment_type,
+                    damage = excluded.damage,
+                    armor = excluded.armor,
+                    speed = excluded.speed,
+                    break_force = excluded.break_force,
+                    price = excluded.price,
+                    critical_chance = excluded.critical_chance,
+                    dodge_chance = excluded.dodge_chance,
+                    market_only = excluded.market_only
+                """,(
                         item_id,
                         equipment_type,
                         damage,
@@ -61,7 +75,8 @@ class EquipmentsDB:
                         tier,
                         price,
                         critical_chance,
-                        dodge_chance
+                        dodge_chance,
+                        1 if market_only else 0
                     )
                 )
         await self.db.commit()
@@ -103,6 +118,11 @@ class EquipmentsDB:
 
     async def generate_equipments(self, items_db):
         try:
+            market_equipments = [
+                ("Rusty Copper Sword", "🗡️", "weapon", 6, 0, 2, 2, 120, 0.02, 0.01),
+                ("Rusty Copper Armor", "🛡", "armor", 0, 6, 0, 0, 150, 0, 0),
+            ]
+
             base_equipments = [
                 ("Stick", "🏑", "weapon",  1, 0, 1, 1, 20, 0, 0),
                 ("Rag", "👕", "armor", 0, 1, 0, 0, 20, 0, 0),
@@ -163,6 +183,28 @@ class EquipmentsDB:
 
             valid_keys = []
 
+            # Generate market equipments
+            for name, emoji, eq_type, dmg, armor, speed, break_force, price, crit, dodge in market_equipments:
+                item_id = await items_db.get_or_create_item(name, emoji, "equipment")
+
+                await self.add_equipment(
+                    item_id,
+                    eq_type,
+                    dmg,
+                    armor,
+                    speed,
+                    break_force,
+                    "common",
+                    price,
+                    crit,
+                    dodge,
+                    market_only=True
+                )
+
+                valid_keys.append((item_id, "common"))
+
+            # Generate equipments
+
             for (name, emoji, equipment_type, base_damage, base_armor, base_speed, base_break_force, base_price,
                 base_critical_chance, base_dodge_chance) in base_equipments:
 
@@ -207,7 +249,10 @@ class EquipmentsDB:
             await self.db.commit()
 
             # Remove equipments not in base pool
-            valid_names = [equipment[0] for equipment in base_equipments]
+            valid_names = (
+                    [e[0] for e in base_equipments] +
+                    [e[0] for e in market_equipments]
+            )
 
             if valid_names:
 
