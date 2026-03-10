@@ -20,9 +20,9 @@ class PlayersDB:
                     equipped_weapon_id INTEGER,
                     equipped_armor_id INTEGER,
                     equipped_accessory_id INTEGER,
-                    FOREIGN KEY (equipped_weapon_id) REFERENCES equipments(equipment_id),
-                    FOREIGN KEY (equipped_armor_id) REFERENCES equipments(equipment_id),
-                    FOREIGN KEY (equipped_accessory_id) REFERENCES equipments(equipment_id)
+                    FOREIGN KEY (equipped_weapon_id) REFERENCES equipments(id),
+                    FOREIGN KEY (equipped_armor_id) REFERENCES equipments(id),
+                    FOREIGN KEY (equipped_accessory_id) REFERENCES equipments(id)
                 )
             """)
             await self.db.commit()

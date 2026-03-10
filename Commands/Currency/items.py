@@ -28,14 +28,18 @@ class Items(commands.Cog):
             return await ctx.send("Please name the item you are looking for")
 
         try:
-            items = await self.bot.db.get_item_by_name(item_name)
+            items = await self.bot.db.get_item_by_name(f"%{item_name}%")
 
             if not items:
                 return await ctx.send("Item not found")
 
             first_item = items[0]
-            _, name, emoji, _, fishing_description, _, market_description, _ = first_item
-            description = fishing_description if fishing_description is not None else market_description
+            (_, name, emoji, item_type, _,
+             fishing_description, _,
+             market_description, _,
+             equipment_damage, equipment_armor, equipment_break_force, equipment_price, equipment_critical_chance, equipment_dodge_chance
+             ) = first_item
+            description = fishing_description if fishing_description is not None else market_description or ""
 
             em = discord.Embed(
                 title=f"{name} {emoji}",
@@ -45,21 +49,46 @@ class Items(commands.Cog):
             em.set_footer(text=description)
 
             # Collect all tiers and prices
-            tiers_list = []
-            prices_list = []
+            fish_tiers_list = []
+            fish_prices_list = []
+            equipment_tiers_list = []
+            equipment_damage_list = []
+            equipment_armor_list = []
+            equipment_break_force_list = []
+            equipment_prices_list = []
+            equipment_critical_chance_list = []
+            equipment_dodge_chance_list = []
             
             for item_data in items:
-                id, name, emoji, fishing_price, _, market_price, _, tier = item_data
+                id, name, emoji, item_type, fishing_price, _, market_price, _, tier, \
+                equipment_damage, equipment_armor, equipment_break_force, equipment_price, equipment_critical_chance, equipment_dodge_chance \
+                    = item_data
                 
-                if tier:
-                    price = fishing_price if fishing_price is not None else market_price
-                    
-                    tiers_list.append(tier)
-                    prices_list.append(f"{price} 🪙")
+                if item_type == 'fish':
+                    fish_tiers_list.append(tier)
+                    fish_prices_list.append(f"{fishing_price} 🪙")
 
-            if tiers_list:
-                em.add_field(name="Tiers", value="\n".join(tiers_list), inline=True)
-                em.add_field(name="Prices", value="\n".join(prices_list), inline=True)
+                if item_type == 'equipment':
+                    equipment_tiers_list.append(tier)
+                    equipment_damage_list.append(f"{equipment_damage}")
+                    equipment_armor_list.append(f"{equipment_armor}")
+                    equipment_break_force_list.append(f"{equipment_break_force}")
+                    equipment_prices_list.append(f"{equipment_price} 🪙")
+                    equipment_critical_chance_list.append(f"{equipment_critical_chance * 100:.0f}%")
+                    equipment_dodge_chance_list.append(f"{equipment_dodge_chance * 100:.0f}%")
+
+            if fish_tiers_list:
+                em.add_field(name="Tiers", value="\n".join(fish_tiers_list), inline=True)
+                em.add_field(name="Prices", value="\n".join(fish_prices_list), inline=True)
+
+            if equipment_tiers_list:
+                em.add_field(name="Tiers", value="\n".join(equipment_tiers_list), inline=True)
+                em.add_field(name="Damage 🗡️", value="\n".join(equipment_damage_list), inline=True)
+                em.add_field(name="Armor ⚜", value="\n".join(equipment_armor_list), inline=True)
+                em.add_field(name="Break Force ⚡", value="\n".join(equipment_break_force_list), inline=True)
+                em.add_field(name="Prices", value="\n".join(equipment_prices_list), inline=True)
+                em.add_field(name="Critical Chance 💥", value="\n".join(equipment_critical_chance_list), inline=True)
+                em.add_field(name="Dodge Chance 👟", value="\n".join(equipment_dodge_chance_list), inline=True)
 
             return await ctx.send(embed=em)
         except Exception as e:

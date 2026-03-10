@@ -9,9 +9,10 @@ class FishingItemsDB:
             id INTEGER PRIMARY KEY,
             item_id INTEGER,
             price INTEGER,
-            tier TEXT,
+            tier TEXT DEFAULT 'common' CHECK(tier in ('common', 'uncommon', 'rare', 'epic', 'legendary')),
             fishing_rate REAL,
             description TEXT,
+            UNIQUE(item_id, tier),
             FOREIGN KEY (item_id) REFERENCES items(id)
         )
         """)
@@ -29,43 +30,88 @@ class FishingItemsDB:
     async def add_fishing_item(self, item_id, price, tier, fishing_rate, description=None):
         async with self.db.cursor() as cursor:
             await cursor.execute("""
-                INSERT INTO fishing_items(item_id, price, tier, fishing_rate, description)
+                INSERT OR REPLACE INTO fishing_items(item_id, price, tier, fishing_rate, description)
                 VALUES(?, ?, ?, ?, ?)
                 """, (item_id, price, tier, fishing_rate, description or ""))
-            await self.db.commit()
 
     # Fish pool generation
+
+
     async def generate_default_pool(self, items_db):
-        pool = [
-            ("Minnow", "🐟", 25, "common", 150, "A tiny fish"),
-            ("Minnow", "🐟", 35, "uncommon", 100, "A tiny fish"),
-            ("Minnow", "🐟", 40, "rare", 75, "A tiny fish"),
-            ("Minnow", "🐟", 50, "epic", 50, "A tiny fish"),
-            ("Minnow", "🐟", 60, "legendary", 25, "A tiny fish"),
-            ("Bass", "🐠", 80, "common", 125, "A decent catch"),
-            ("Bass", "🐠", 90, "uncommon", 90, "A decent catch"),
-            ("Bass", "🐠", 100, "rare", 65, "A decent catch"),
-            ("Bass", "🐠", 120, "epic", 50, "A decent catch"),
-            ("Bass", "🐠", 150, "legendary", 20, "A decent catch"),
-            ("Octopus", "🐙", 200, "uncommon", 60, "Squishy"),
-            ("Octopus", "🐙", 250, "rare", 45, "Squishy"),
-            ("Octopus", "🐙", 350, "epic", 30, "Squishy"),
-            ("Octopus", "🐙", 500, "legendary", 15, "Squishy"),
-            ("Shark", "🦈", 400, "rare", 35, "Fierce predator"),
-            ("Shark", "🦈", 600, "epic", 25, "Fierce predator"),
-            ("Shark", "🦈", 900, "legendary", 10, "Fierce predator"),
-            ("Kraken", "🦑", 2000, "epic", 25, "Nightmare for those who sails"),
-            ("Kraken", "🦑", 4500, "legendary", 5, "Nightmare for those who sails"),
+        base_fish = [
+            ("Minnow", "🐟", 25, 500, "A tiny fish"),
+            ("Bass", "🐠", 80, 250, "A decent catch"),
+            ("Octopus", "🐙", 200, 150, "Squishy"),
+            ("Shark", "🦈", 400, 75, "Fierce predator"),
+            ("Kraken", "🦑", 2000, 25, "Nightmare for sailors"),
         ]
 
-        for name, emoji, price, tier, fishing_rate, description in pool:
-            item_id = await items_db.add_item(name, emoji, "fish")
-            await self.add_fishing_item(item_id, price, tier, fishing_rate, description)
+        TIERS = {
+            "common": {
+                "price_mult": 1.0,
+                "rate_mult": 1.0
+            },
+            "uncommon": {
+                "price_mult": 1.4,
+                "rate_mult": 0.7
+            },
+            "rare": {
+                "price_mult": 1.8,
+                "rate_mult": 0.5
+            },
+            "epic": {
+                "price_mult": 2.5,
+                "rate_mult": 0.3
+            },
+            "legendary": {
+                "price_mult": 4.0,
+                "rate_mult": 0.15
+            }
+        }
+
+        valid_keys = []
+
+        for name, emoji, base_price, base_rate, desc in base_fish:
+
+            item_id = await items_db.get_or_create_item(name, emoji, "fish")
+
+            for tier, mult in TIERS.items():
+                price = int(base_price * mult["price_mult"])
+                rate = base_rate * mult["rate_mult"]
+
+                await self.add_fishing_item(item_id, price, tier, rate, desc)
+
+                valid_keys.append((item_id, tier))
+
+        # Remove rows not in pool anymore
+        async with self.db.cursor() as cursor:
+
+            if valid_keys:
+                placeholders = ",".join(["(?, ?)"] * len(valid_keys))
+
+                values = [v for pair in valid_keys for v in pair]
+
+                await cursor.execute(f"""
+                    DELETE FROM fishing_items
+                    WHERE (item_id, tier) NOT IN ({placeholders})
+                """, values)
+
+        await self.db.commit()
+
+        # Remove fish not in base pool
+        valid_names = [fish[0] for fish in base_fish]
+
+        async with self.db.cursor() as cursor:
+
+            placeholders = ",".join("?" * len(valid_names))
+
+            await cursor.execute(f"""
+                DELETE FROM items
+                WHERE item_type='fish'
+                AND name NOT IN ({placeholders})
+            """, valid_names)
+
+        await self.db.commit()
 
     async def ensure_pool(self, items_db):
-        async with self.db.cursor() as cursor:
-            await cursor.execute("SELECT COUNT(*) FROM fishing_items")
-            count = (await cursor.fetchone())[0]
-
-        if count == 0:
-            await self.generate_default_pool(items_db)
+        await self.generate_default_pool(items_db)

@@ -70,8 +70,8 @@ class Database:
     async def get_all_items(self):
         return await self.items.get_all_items()
 
-    async def add_item(self, name, emoji, item_type='fish'):
-        return await self.items.add_item(name, emoji, item_type)
+    async def get_or_create_item(self, name, emoji, item_type):
+        return await self.items.get_or_create_item(name, emoji, item_type)
 
     async def clear_all_items(self):
         return await self.items.clear_all_items()
@@ -115,8 +115,7 @@ class Database:
     # Equipment shortcuts
     async def add_equipment(
             self,
-            name,
-            emoji,
+            item_id,
             equipment_type,
             damage=0,
             armor=0,
@@ -127,8 +126,7 @@ class Database:
             dodge_chance=0
     ):
         return await self.equipments.add_equipment(
-            name,
-            emoji,
+            item_id,
             equipment_type,
             damage,
             armor,
@@ -147,6 +145,9 @@ class Database:
 
     async def get_equipment_by_tier(self, tier):
         return await self.equipments.get_equipment_by_tier(tier)
+
+    async def ensure_equipments(self):
+        return await self.equipments.ensure_equipments(self.items)
 
     # Monster shortcuts
     async def add_monster(
