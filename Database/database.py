@@ -227,3 +227,36 @@ class Database:
 
     async def end_battle(self, battle_id, status):
         return await self.battle_logs.end_battle(battle_id, status)
+
+    # Lottery shortcuts
+    async def create_lottery(self, enrol_price, total_price, start_date, end_date):
+        return await self.lotteries.create_lottery(enrol_price, total_price, start_date, end_date)
+
+    async def get_active_lottery(self):
+        return await self.lotteries.get_active_lottery()
+
+    async def set_winning_number(self, lottery_id, number):
+        return await self.lotteries.set_winning_number(lottery_id, number)
+
+    async def update_total_price(self, lottery_id, amount):
+        return await self.lotteries.update_total_price(lottery_id, amount)
+
+    async def get_recent_lotteries(self, limit=5):
+        return await self.lotteries.get_recent_lotteries(limit)
+
+    # Lottery players shortcuts
+    async def add_lottery_player(self, user_id, lottery_id, bet_number):
+        return await self.lottery_players.add_player(user_id, lottery_id, bet_number)
+
+    async def get_lottery_player_entry(self, user_id, lottery_id):
+        return await self.lottery_players.get_player_entry(user_id, lottery_id)
+
+    async def get_lottery_players(self, lottery_id):
+        return await self.lottery_players.get_players_by_lottery(lottery_id)
+
+    async def get_lottery_winners(self, lottery_id, winning_number):
+        return await self.lottery_players.get_winners(lottery_id, winning_number)
+
+    async def count_lottery_players(self, lottery_id):
+        return await self.lottery_players.count_players(lottery_id)
+
