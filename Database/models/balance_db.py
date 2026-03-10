@@ -44,7 +44,7 @@ class BalanceDB:
         await self.db.commit()
 
     async def update_bank(self, user_id, amount):
-        """Cộng/trừ tiền trong bank. amount dương = cộng, âm = trừ"""
+        """Add/subtract money in bank. Positive amount = add, negative = subtract."""
         await self.get_balance(user_id)
         async with self.db.cursor() as cursor:
             await cursor.execute(
