@@ -44,7 +44,7 @@ class InventorySelect(discord.ui.Select):
         )
 
 class InventoryView(discord.ui.View):
-    def __init__(self, ctx, inventory, per_page=8):
+    def __init__(self, ctx, inventory, per_page=18):
         super().__init__(timeout=15)
         self.ctx = ctx
         self.inventory = inventory
@@ -68,16 +68,14 @@ class InventoryView(discord.ui.View):
              fishing_description, market_description, is_locked) in enumerate(self.inventory[start:end], start=start):
 
             left_pointer = "⭐ " if i == self.selected else ""
-            right_pointer = " ⭐" if i == self.selected else ""
 
             price = fishing_price if fishing_price is not None else market_price
-            description = fishing_description if fishing_description is not None else market_description
             lock_icon = "🔒" if is_locked else ""
 
             em.add_field(
-                name=f"{left_pointer} [{i+1}] {item_tier} {item_name} {item_emoji} {lock_icon} {right_pointer}",
-                value=f"Price: {price} 🪙 {description}",
-                inline=False
+                name=f"{left_pointer} [{i+1}] {item_tier} {item_name} {item_emoji} {lock_icon}",
+                value=f"Price: {price} 🪙",
+                inline=True
             )
         em.set_footer(text=f"Page {self.page+1}/{self.max_pages+1}")
 
