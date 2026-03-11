@@ -13,7 +13,7 @@ class MarketSelect(discord.ui.Select):
         options = []
 
         for i ,row in enumerate(view.market[start:end], start=start):
-            eq_id, name, emoji, eq_type, dmg, armor, speed, break_force, _, price, crit, dodge = row
+            eq_id, name, emoji, eq_type, health, dmg, armor, speed, break_force, _, price, crit, dodge = row
 
             options.append(
                 discord.SelectOption(
@@ -67,15 +67,17 @@ class MarketView(discord.ui.View):
             start = self.page * self.per_page
             end = start + self.per_page
 
-            for i, (eq_id, name, emoji, eq_type, dmg, armor, speed, break_force, _, price, crit, dodge) \
+            for i, (eq_id, name, emoji, eq_type, health, dmg, armor, speed, break_force, _, price, crit, dodge) \
                 in (enumerate(self.market[start:end], start=start)):
 
                 pointer = "⭐ " if i == self.selected else ""
 
                 stats = []
 
+                if health:
+                    stats.append(f"❤️ **{health}**")
                 if dmg:
-                    stats.append(f"🗡️ **{dmg}**")
+                    stats.append(f"⚔️ **{dmg}**")
                 if armor:
                     stats.append(f"🛡 **{armor}**")
                 if speed:
@@ -165,7 +167,7 @@ class MarketView(discord.ui.View):
 
             wallet = balance[0]
 
-            item_id, name, emoji, eq_type, dmg, armor, speed, break_force, tier, price, crit, dodge = row
+            item_id, name, emoji, eq_type, health, dmg, armor, speed, break_force, tier, price, crit, dodge = row
 
             if wallet < price:
                 message = "**You don't have enough money**"

@@ -5,7 +5,7 @@ from discord.ext import commands, tasks
 
 # ============ CONFIGURATION ============
 ENROL_PRICE = 100           # Ticket price per entry
-INTERVAL_MINUTES = 20        # Auto-draw every N minutes
+INTERVAL_MINUTES = 3600        # Auto-draw every N minutes
 NUMBER_RANGE = (1, 100)     # Players pick a number in this range
 ANNOUNCEMENT_CHANNEL = "lottery-notice-test"  # Fixed channel name for draw results
 

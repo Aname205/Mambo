@@ -14,15 +14,18 @@ class PlayersDB:
                     damage INTEGER default 1,
                     armor INTEGER default 0,
                     speed INTEGER default 10,
+                    break_force INTEGER default 0,
                     critical_chance REAL default 0.05,
                     dodge_chance REAL default 0.05,
                     
                     equipped_weapon_id INTEGER,
                     equipped_armor_id INTEGER,
-                    equipped_accessory_id INTEGER,
+                    equipped_accessory_1_id INTEGER,
+                    equipped_accessory_2_id INTEGER,
                     FOREIGN KEY (equipped_weapon_id) REFERENCES equipments(id),
                     FOREIGN KEY (equipped_armor_id) REFERENCES equipments(id),
-                    FOREIGN KEY (equipped_accessory_id) REFERENCES equipments(id)
+                    FOREIGN KEY (equipped_accessory_1_id) REFERENCES equipments(id),
+                    FOREIGN KEY (equipped_accessory_2_id) REFERENCES equipments(id)
                 )
             """)
             await self.db.commit()
@@ -71,14 +74,198 @@ class PlayersDB:
 
         await self.db.commit()
 
-    # Equip weapon or armor
-    async def equip_item(self, user_id, equipment_id, slot):
-        if slot not in ["weapon", "armor"]:
-            raise ValueError("Slot must be 'weapon' or 'armor'")
+    async def recalculate_stats(self, user_id):
+        async with self.db.cursor() as cursor:
+            # Get base stats (assuming base stats are 10 health, 1 damage, 0 armor, 10 speed, 0 break_force, 0.05 crit, 0.05 dodge)
+            base_health = 10
+            base_damage = 1
+            base_armor = 0
+            base_speed = 10
+            base_break_force = 0
+            base_crit = 0.05
+            base_dodge = 0.05
+            
+            # Get equipped items
+            await cursor.execute("""
+                SELECT equipped_weapon_id, equipped_armor_id, equipped_accessory_1_id, equipped_accessory_2_id
+                FROM players
+                WHERE user_id = ?
+                """, (user_id,))
+            
+            equipped = await cursor.fetchone()
+            if not equipped:
+                return
+            
+            weapon_id, armor_id, acc1_id, acc2_id = equipped
+            
+            # Calculate total stats from equipment
+            total_health = base_health
+            total_damage = base_damage
+            total_armor = base_armor
+            total_speed = base_speed
+            total_break_force = base_break_force
+            total_crit = base_crit
+            total_dodge = base_dodge
+            
+            # Add stats from each equipped item
+            for eq_id in [weapon_id, armor_id, acc1_id, acc2_id]:
+                if eq_id:
+                    await cursor.execute("""
+                        SELECT health, damage, armor, speed, break_force, critical_chance, dodge_chance
+                        FROM equipments
+                        WHERE id = ?
+                        """, (eq_id,))
+                    
+                    eq_stats = await cursor.fetchone()
+                    if eq_stats:
+                        total_health += eq_stats[0]
+                        total_damage += eq_stats[1]
+                        total_armor += eq_stats[2]
+                        total_speed += eq_stats[3]
+                        total_break_force += eq_stats[4]
+                        total_crit += eq_stats[5]
+                        total_dodge += eq_stats[6]
+            
+            # Update player stats
+            await cursor.execute("""
+                UPDATE players
+                SET health = ?,
+                    max_health = ?,
+                    damage = ?,
+                    armor = ?,
+                    speed = ?,
+                    break_force = ?,
+                    critical_chance = ?,
+                    dodge_chance = ?
+                WHERE user_id = ?
+                """, (total_health, total_health, total_damage, total_armor, total_speed, total_break_force, total_crit, total_dodge, user_id))
+        
+        await self.db.commit()
 
-        column = "equipped_weapon_id" if slot == "weapon" else "equipped_armor_id"
+    # Equip weapon or armor
+    async def equip_item(self, user_id, inv_id, slot):
 
         async with self.db.cursor() as cursor:
+
+            # Get item_id and tier from inventory
+            await cursor.execute("""
+                SELECT item_id, item_tier
+                FROM inventories
+                WHERE id = ?
+                AND user_id = ?
+                """, (inv_id, user_id))
+
+            row = await cursor.fetchone()
+
+            if not row:
+                return
+
+            item_id, item_tier = row
+            
+            # Get equipment_id from equipments table
+            await cursor.execute("""
+                SELECT id
+                FROM equipments
+                WHERE item_id = ?
+                AND tier = ?
+                """, (item_id, item_tier))
+            
+            eq_row = await cursor.fetchone()
+            
+            if not eq_row:
+                return
+                
+            equipment_id = eq_row[0]
+
+            # Determine column and get old equipment
+            old_equipment = None
+            column = None
+            
+            if slot == "weapon":
+                column = "equipped_weapon_id"
+                await cursor.execute("""
+                    SELECT equipped_weapon_id
+                    FROM players
+                    WHERE user_id = ?
+                    """, (user_id,))
+                old_equipment = (await cursor.fetchone())[0]
+
+            elif slot == "armor":
+                column = "equipped_armor_id"
+                await cursor.execute("""
+                    SELECT equipped_armor_id
+                    FROM players
+                    WHERE user_id = ?
+                    """, (user_id,))
+                old_equipment = (await cursor.fetchone())[0]
+
+            elif slot == "accessory_1":
+                column = "equipped_accessory_1_id"
+                await cursor.execute("""
+                    SELECT equipped_accessory_1_id
+                    FROM players
+                    WHERE user_id = ?
+                    """, (user_id,))
+                old_equipment = (await cursor.fetchone())[0]
+                
+            elif slot == "accessory_2":
+                column = "equipped_accessory_2_id"
+                await cursor.execute("""
+                    SELECT equipped_accessory_2_id
+                    FROM players
+                    WHERE user_id = ?
+                    """, (user_id,))
+                old_equipment = (await cursor.fetchone())[0]
+                
+            elif slot == "accessory":
+                # Legacy "accessory" slot - auto-assign to first available
+                await cursor.execute("""
+                    SELECT equipped_accessory_1_id, equipped_accessory_2_id
+                    FROM players
+                    WHERE user_id = ?
+                    """, (user_id,))
+
+                acc1, acc2 = await cursor.fetchone()
+
+                if acc1 is None:
+                    column = "equipped_accessory_1_id"
+                    old_equipment = None
+                else:
+                    column = "equipped_accessory_2_id"
+                    old_equipment = acc2
+            else:
+                # Invalid slot
+                return
+            
+            if column is None:
+                return
+
+            # Return old equipment to inventory
+            if old_equipment:
+                # Get item_id and tier from equipment_id
+                await cursor.execute("""
+                    SELECT item_id, tier
+                    FROM equipments
+                    WHERE id = ?
+                    """, (old_equipment,))
+                
+                old_eq_row = await cursor.fetchone()
+                
+                if old_eq_row:
+                    old_item_id, old_tier = old_eq_row
+                    await cursor.execute("""
+                        INSERT INTO inventories(user_id, item_id, item_tier)
+                        VALUES (?, ?, ?)
+                        """, (user_id, old_item_id, old_tier))
+
+            # Remove new equipment from inventory
+            await cursor.execute("""
+                DELETE
+                FROM inventories
+                WHERE id = ?
+                """, (inv_id,))
+
+            # Equip item
             await cursor.execute(f"""
                 UPDATE players
                 SET {column} = ?
@@ -86,3 +273,63 @@ class PlayersDB:
             """, (equipment_id, user_id))
 
         await self.db.commit()
+        
+        # Recalculate player stats based on new equipment
+        await self.recalculate_stats(user_id)
+
+    async def get_equipped_items(self, user_id):
+        """Get all equipped items with their full details"""
+        async with self.db.cursor() as cursor:
+            await cursor.execute("""
+                SELECT 
+                    p.equipped_weapon_id,
+                    p.equipped_armor_id,
+                    p.equipped_accessory_1_id,
+                    p.equipped_accessory_2_id
+                FROM players p
+                WHERE p.user_id = ?
+                """, (user_id,))
+            
+            equipped_ids = await cursor.fetchone()
+            
+            if not equipped_ids:
+                return None, None, None, None
+            
+            weapon_id, armor_id, acc1_id, acc2_id = equipped_ids
+            
+            # Helper function to get equipment details
+            async def get_equipment_details(eq_id):
+                if not eq_id:
+                    return None
+                
+                await cursor.execute("""
+                    SELECT 
+                        e.id,
+                        i.id,
+                        i.name,
+                        i.emoji,
+                        e.tier,
+                        0 as price,
+                        0 as market_price,
+                        0 as is_lock,
+                        e.equipment_type,
+                        e.health,
+                        e.damage,
+                        e.armor,
+                        e.speed,
+                        e.break_force,
+                        e.critical_chance,
+                        e.dodge_chance
+                    FROM equipments e
+                    JOIN items i ON e.item_id = i.id
+                    WHERE e.id = ?
+                    """, (eq_id,))
+                
+                return await cursor.fetchone()
+            
+            weapon = await get_equipment_details(weapon_id)
+            armor = await get_equipment_details(armor_id)
+            acc1 = await get_equipment_details(acc1_id)
+            acc2 = await get_equipment_details(acc2_id)
+            
+            return weapon, armor, acc1, acc2

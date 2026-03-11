@@ -29,6 +29,7 @@ class InventoriesDB:
                     COALESCE(em.price, mi.price) AS market_price,
                     inv.is_lock,
                     em.equipment_type,
+                    em.health,
                     em.damage,
                     em.armor,
                     em.speed,

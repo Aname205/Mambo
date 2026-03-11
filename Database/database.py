@@ -116,11 +116,15 @@ class Database:
     async def equip_item(self, user_id, equipment_id, slot):
         return await self.players.equip_item(user_id, equipment_id, slot)
 
+    async def get_equipped_items(self, user_id):
+        return await self.players.get_equipped_items(user_id)
+
     # Equipment shortcuts
     async def add_equipment(
             self,
             item_id,
             equipment_type,
+            health=0,
             damage=0,
             armor=0,
             speed=0,
@@ -134,6 +138,7 @@ class Database:
         return await self.equipments.add_equipment(
             item_id,
             equipment_type,
+            health,
             damage,
             armor,
             speed,

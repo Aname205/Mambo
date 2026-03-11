@@ -9,6 +9,7 @@ class EquipmentsDB:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     item_id INTEGER,
                     equipment_type TEXT NOT NULL CHECK(equipment_type IN ('weapon', 'armor', 'accessory')),
+                    health INTEGER DEFAULT 0,
                     damage INTEGER DEFAULT 0,
                     armor INTEGER DEFAULT 0,
                     speed INTEGER DEFAULT 0,
@@ -28,6 +29,7 @@ class EquipmentsDB:
             self,
             item_id,
             equipment_type,
+            health=0,
             damage=0,
             armor=0,
             speed=0,
@@ -43,6 +45,7 @@ class EquipmentsDB:
                 INSERT INTO equipments(
                     item_id, 
                     equipment_type, 
+                    health,
                     damage, 
                     armor,
                     speed,
@@ -53,10 +56,11 @@ class EquipmentsDB:
                     dodge_chance,
                     market_only
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (item_id, tier)
                 DO UPDATE SET
                     equipment_type = excluded.equipment_type,
+                    health = excluded.health,
                     damage = excluded.damage,
                     armor = excluded.armor,
                     speed = excluded.speed,
@@ -68,6 +72,7 @@ class EquipmentsDB:
                 """,(
                         item_id,
                         equipment_type,
+                        health,
                         damage,
                         armor,
                         speed,
@@ -119,18 +124,21 @@ class EquipmentsDB:
     async def generate_equipments(self, items_db):
         try:
             market_equipments = [
-                ("Rusty Copper Sword", "🗡️", "weapon", 6, 0, 2, 2, 120, 0.02, 0.01),
-                ("Rusty Copper Armor", "🛡", "armor", 0, 6, 0, 0, 150, 0, 0),
+                ("Rusty Copper Sword", "🗡️", "weapon", 0, 6, 0, 2, 2, 120, 0.02, 0.01),
+                ("Rusty Copper Armor", "🛡", "armor", 20 ,0, 6, 0, 0, 150, 0, 0),
+                ("Crude Speed Gem", "💎", "accessory", 0, 0, 0, 4, 0, 200, 0, 0),
+                ("Crude Blood Gem", "🔴", "accessory", 10, 0, 0, 0, 0, 200, 0, 0),
             ]
 
             base_equipments = [
-                ("Stick", "🏑", "weapon",  1, 0, 1, 1, 20, 0, 0),
-                ("Rag", "👕", "armor", 0, 1, 0, 0, 20, 0, 0),
-                ("Wooden Sword", "🗡️", "weapon", 3, 0, 1, 2, 50, 0.01, 0)
+                ("Stick", "🏑", "weapon",0 ,1, 0, 1, 1, 20, 0, 0),
+                ("Rag", "👕", "armor",5 ,0, 1, 0, 0, 20, 0, 0),
+                ("Wooden Sword", "🗡️", "weapon",0 ,3, 0, 1, 2, 50, 0.01, 0)
             ]
 
             TIERS = {
                 "common": {
+                    "health_mult": 1,
                     "damage_mult": 1,
                     "armor_mult": 1,
                     "speed_mult": 1,
@@ -141,6 +149,7 @@ class EquipmentsDB:
                 },
 
                 "uncommon": {
+                    "health_mult": 1.1,
                     "damage_mult": 1.1,
                     "armor_mult": 1.05,
                     "speed_mult": 1.1,
@@ -151,6 +160,7 @@ class EquipmentsDB:
                 },
 
                 "rare": {
+                    "health_mult": 1.2,
                     "damage_mult": 1.2,
                     "armor_mult": 1.1,
                     "speed_mult": 1.2,
@@ -161,6 +171,7 @@ class EquipmentsDB:
                 },
 
                 "epic": {
+                    "health_mult": 1.35,
                     "damage_mult": 1.35,
                     "armor_mult": 1.2,
                     "speed_mult": 1.3,
@@ -171,6 +182,7 @@ class EquipmentsDB:
                 },
 
                 "legendary": {
+                    "health_mult": 1.5,
                     "damage_mult": 1.5,
                     "armor_mult": 1.4,
                     "speed_mult": 1.5,
@@ -184,12 +196,13 @@ class EquipmentsDB:
             valid_keys = []
 
             # Generate market equipments
-            for name, emoji, eq_type, dmg, armor, speed, break_force, price, crit, dodge in market_equipments:
+            for name, emoji, eq_type, health, dmg, armor, speed, break_force, price, crit, dodge in market_equipments:
                 item_id = await items_db.get_or_create_item(name, emoji, "equipment")
 
                 await self.add_equipment(
                     item_id,
                     eq_type,
+                    health,
                     dmg,
                     armor,
                     speed,
@@ -205,23 +218,25 @@ class EquipmentsDB:
 
             # Generate equipments
 
-            for (name, emoji, equipment_type, base_damage, base_armor, base_speed, base_break_force, base_price,
+            for (name, emoji, equipment_type,base_health ,base_damage, base_armor, base_speed, base_break_force, base_price,
                 base_critical_chance, base_dodge_chance) in base_equipments:
 
                 item_id = await items_db.get_or_create_item(name, emoji, "equipment")
 
                 for tier, mult in TIERS.items():
+                    health = int(base_health * mult["health_mult"])
                     damage = int(base_damage * mult["damage_mult"])
                     armor = int(base_armor * mult["armor_mult"])
                     speed = int(base_speed * mult["speed_mult"])
                     break_force = int(base_break_force * mult["break_force_mult"])
                     price = int(base_price * mult["price_mult"])
-                    critical_chance = float(base_critical_chance * mult["critical_chance_mult"])
-                    dodge_chance = float(base_dodge_chance * mult["dodge_chance_mult"])
+                    critical_chance = round(base_critical_chance * mult["critical_chance_mult"], 4)
+                    dodge_chance = round(base_dodge_chance * mult["dodge_chance_mult"], 4)
 
                     await self.add_equipment(
                         item_id,
                         equipment_type,
+                        health,
                         damage,
                         armor,
                         speed,

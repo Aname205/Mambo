@@ -23,6 +23,7 @@ class MarketItemsDB:
                     items.name,
                     items.emoji,
                     equipments.equipment_type,
+                    equipments.health,
                     equipments.damage,
                     equipments.armor,
                     equipments.speed,

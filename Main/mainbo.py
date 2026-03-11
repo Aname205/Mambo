@@ -42,6 +42,7 @@ async def main():
         await bot.load_extension("Commands.Currency.lottery")
         await bot.load_extension("Commands.Currency.slot")
         await bot.load_extension("Commands.Currency.poker")
+        await bot.load_extension("Commands.Currency.status")
         await bot.start(token)
 
 asyncio.run(main())
