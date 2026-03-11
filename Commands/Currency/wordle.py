@@ -8,7 +8,7 @@ def build_board(guesses):
         rows.append(result)
 
     while len(rows) < 6:
-        rows.append("⬛⬛⬛⬛⬛")
+        rows.append(f"⬛⬛⬛⬛⬛")
 
     return ("\n".join(rows))
 
@@ -122,7 +122,7 @@ class Wordle(commands.Cog):
         if user_id not in self.active_games:
             return
 
-        guess = message.content.lower()
+        guess = message.content.lower().trim()
 
         if len(guess) != 5:
             return
