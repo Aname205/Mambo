@@ -1,15 +1,53 @@
 import random
 import discord
 import discord.ext.commands as commands
-from flask import ctx
 
 def build_board(guesses):
-    board = ""
-
+    rows = []
     for guess, result in guesses:
-        board += f"{guess.upper()} {result}\n"
+        rows.append(result)
 
-    return board
+    while len(rows) < 6:
+        rows.append("⬛⬛⬛⬛⬛")
+
+    return ("\n".join(rows))
+
+def update_letters(letter_map, guess, result):
+    for i in range(5):
+        letter = guess[i]
+        color = result[i]
+
+        if letter not in letter_map:
+            letter_map[letter] = color
+        else:
+            if color == "🟩":
+                letter_map[letter] = "🟩"
+            elif color == "🟨" and letter_map[letter] == "⬛":
+                letter_map[letter] = "🟨"
+
+def letter_display(letter_map):
+    correct = []
+    misplaced = []
+    wrong = []
+
+    for letter, color in letter_map.items():
+        if color == "🟩":
+            correct.append(letter.upper())
+        elif color == "🟨":
+            misplaced.append(letter.upper())
+        elif color == "⬛":
+            wrong.append(letter.upper())
+
+    text = ""
+
+    if correct:
+        text += "🟩 " + " ".join(correct) + "\n"
+    if misplaced:
+        text += "🟨 " + " ".join(misplaced) + "\n"
+    if wrong:
+        text += "⬛ " + " ".join(wrong) + "\n"
+
+    return text if text else "No letters guessed yet!"
 
 def check_guess(guess, word):
     result = ["⬛"] * 5
@@ -45,25 +83,29 @@ class Wordle(commands.Cog):
 
         word = random.choice(self.words)
 
-        self.active_games[user_id] = {
-            "word": word,
-            "attempts": 0,
-            "guesses": [],
-        }
-
         embed = discord.Embed(
             title="Wordle",
             description="Guess the **5 letter word**.\nYou have **6 attempts**.",
             color=discord.Color.green()
         )
 
+        empty_board = build_board([])
+
         embed.add_field(
             name="Board",
-            value="No guesses yet",
+            value=f"```{empty_board}```",
             inline=False
         )
 
-        await ctx.send(embed=embed)
+        game_message = await ctx.send(embed=embed)
+
+        self.active_games[user_id] = {
+            "word": word,
+            "attempts": 0,
+            "guesses": [],
+            "letters": {},
+            "message": game_message
+        }
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -89,13 +131,13 @@ class Wordle(commands.Cog):
         word = game["word"]
 
         result = check_guess(guess, word)
+        update_letters(game["letters"], guess, result)
 
         game["attempts"] += 1
         game["guesses"].append((guess, result))
 
         board = build_board(game["guesses"])
-
-        # await message.channel.send(f"{guess.upper()}:\n {result}")
+        letters = letter_display(game["letters"])
 
         embed = discord.Embed(
             title="Wordle",
@@ -109,7 +151,14 @@ class Wordle(commands.Cog):
             inline=False
         )
 
-        await message.channel.send(embed=embed)
+        embed.add_field(
+            name="Letters",
+            value=letters,
+            inline=False
+        )
+
+        game_message = game["message"]
+        await game_message.edit(embed=embed)
 
         if guess == word:
             await message.channel.send("You win!")
@@ -119,7 +168,6 @@ class Wordle(commands.Cog):
         if game["attempts"] >= 6:
             await message.channel.send(f"You lose :(\n The word was **{word}**")
             del self.active_games[user_id]
-
 
 async def setup(bot):
     await bot.add_cog(Wordle(bot))
