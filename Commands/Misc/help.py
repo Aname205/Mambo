@@ -11,19 +11,19 @@ class Help(commands.Cog):
 
         em.add_field(
             name="💰   **Currency**",
-            value="balance, addbalance, subbalance, deposit, withdraw",
+            value="balance, addbalance, subbalance, deposit, withdraw, daily",
             inline=False
         )
 
         em.add_field(
             name="🎮   **Currency game**",
-            value="blackjack, fish, trivia, triviacategories",
+            value="blackjack, fish, trivia, triviacategories, highlow, rps, lottery",
             inline=False
         )
 
         em.add_field(
             name="🏪   **Item management**",
-            value="items, iteminfo, clearitem, sell",
+            value="iteminfo, clearitem, sell, inventory, lock, unlock",
             inline=False
         )
 
