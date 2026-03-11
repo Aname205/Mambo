@@ -186,5 +186,50 @@ class Wordle(commands.Cog):
             await message.channel.send(f"You lose :(\n The word was **{word}**")
             del self.active_games[user_id]
 
+    @commands.command()
+    async def showboard(self, ctx):
+        user_id = ctx.author.id
+
+        # Check if user has an active game
+        if user_id not in self.active_games:
+            await ctx.send("You don't have an active Wordle game.")
+            return
+
+        game = self.active_games[user_id]
+
+        board = build_board(game["guesses"])
+        letters = letter_display(game["letters"])
+
+        embed = discord.Embed(
+            title="Wordle Board",
+            description=f"Guessed **{game['attempts']}/6** attempts.",
+            color=discord.Color.green()
+        )
+
+        embed.add_field(
+            name="Board",
+            value=f"```{board}```",
+            inline=False
+        )
+
+        embed.add_field(
+            name="Letters",
+            value=letters,
+            inline=False
+        )
+
+        old_message = game["message"]
+        try:
+            await old_message.delete()
+        except:
+            pass
+
+        # Send new board
+        new_message = await ctx.send(embed=embed)
+
+        # Replace the stored board message
+        game["message"] = new_message
+
+
 async def setup(bot):
     await bot.add_cog(Wordle(bot))
