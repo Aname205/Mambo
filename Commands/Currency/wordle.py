@@ -4,11 +4,12 @@ import discord.ext.commands as commands
 
 def build_board(guesses):
     rows = []
+
     for guess, result in guesses:
-        rows.append(result)
+        rows.append(f"{guess.upper()} {result}")
 
     while len(rows) < 6:
-        rows.append(f"⬛⬛⬛⬛⬛")
+        rows.append("_____ ⬛⬛⬛⬛⬛")
 
     return ("\n".join(rows))
 
@@ -122,9 +123,9 @@ class Wordle(commands.Cog):
         if user_id not in self.active_games:
             return
 
-        guess = message.content.lower().trim()
+        guess = message.content.lower().strip()
 
-        if len(guess) != 5:
+        if len(guess) != 5 or not guess.isalpha():
             return
 
         game = self.active_games[user_id]
