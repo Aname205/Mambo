@@ -36,6 +36,7 @@ async def main():
         await bot.load_extension("Commands.Misc.help")
         await bot.load_extension("Commands.Misc.waifu")
         await bot.load_extension("Commands.Currency.highlow")
+        await bot.load_extension("Commands.Currency.wordle")
         await bot.start(token)
 
 asyncio.run(main())
