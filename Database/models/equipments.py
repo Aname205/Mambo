@@ -124,16 +124,20 @@ class EquipmentsDB:
     async def generate_equipments(self, items_db):
         try:
             market_equipments = [
-                ("Rusty Copper Sword", "🗡️", "weapon", 0, 6, 0, 2, 2, 120, 0.02, 0.01),
-                ("Rusty Copper Armor", "🛡", "armor", 20 ,0, 6, 0, 0, 150, 0, 0),
-                ("Crude Speed Gem", "💎", "accessory", 0, 0, 0, 4, 0, 200, 0, 0),
+                ("Wooden Sword", "🗡️", "weapon", 0, 6, 0, 2, 2, 120, 0.02, 0.01),
+                ("Wooden Armor", "🛡", "armor", 20, 0, 3, 0, 0, 150, 0, 0),
+                ("Crude Speed Gem", "💎", "accessory", 0, 0, 0, 3, 0, 200, 0, 0),
                 ("Crude Blood Gem", "🔴", "accessory", 10, 0, 0, 0, 0, 200, 0, 0),
             ]
 
+            # Fields: name, emoji, equipment_type('weapon', 'armor', 'accessory'), hp, dmg, armor, speed, break, price, crit, dodge
             base_equipments = [
-                ("Stick", "🏑", "weapon",0 ,1, 0, 1, 1, 20, 0, 0),
-                ("Rag", "👕", "armor",5 ,0, 1, 0, 0, 20, 0, 0),
-                ("Wooden Sword", "🗡️", "weapon",0 ,3, 0, 1, 2, 50, 0.01, 0)
+                ("Rusty Copper Sword", "🗡️", "weapon", 0, 9, 0, 2, 3, 30, 0.02, 0.01), #10
+                ("Rusty Copper Armor", "🛡", "armor", 30, 0, 4, 0, 0, 30, 0, 0), #11
+                ("Rusty Copper Axe" , "🪓", "weapon", 0, 12, 0, -1, 5, 30, 0.02, 0), #12
+                ("Rusty Copper Knife" , "🔪", "weapon", 0, 6, 0, 4, 1, 30, 0.04, 0.01), #13
+                ("Copper Sword", "🗡️", "weapon", 0, 12, 0, 2, 4, 50, 0.03, 0.01), #14
+                ("Copper Armor", "🛡", "armor", 35, 0, 6, 0, 0, 50, 0, 0), #15
             ]
 
             TIERS = {

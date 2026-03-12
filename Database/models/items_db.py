@@ -9,7 +9,8 @@ class ItemsDB:
                 name TEXT,
                 emoji TEXT,
                 item_type TEXT
-            )""")
+                )
+            """)
         await self.db.commit()
 
     async def get_item(self, item_id):

@@ -7,17 +7,28 @@ class BattleLogsDB:
             await cursor.execute("""
                 CREATE TABLE IF NOT EXISTS battle_logs(
                     battle_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    monster_id INTEGER NOT NULL,
-                    player_health INTEGER NOT NULL,
-                    monster_health INTEGER NOT NULL,
-                    monster_tenacity INTEGER NOT NULL,
-                    monster_speed INTEGER NOT NULL,
-                    monster_level INTEGER NOT NULL,
-                    turn_number INTEGER DEFAULT 1,
+                    user_id INTEGER,
+                    monster_id INTEGER,
+                    player_health INTEGER,
+                    player_damage INTEGER,
+                    player_armor INTEGER,
+                    player_speed INTEGER,
+                    player_break_force INTEGER,
+                    player_critical_chance REAL,
+                    player_dodge_chance REAL,
+                    monster_health INTEGER,
+                    monster_damage INTEGER,
+                    monster_armor INTEGER,
+                    monster_tenacity INTEGER,
+                    monster_speed INTEGER,
+                    monster_critical_chance REAL,
+                    monster_dodge_chance REAL,
+                    monster_level INTEGER,
+                    monster_currency_reward INTEGER,
+                    monster_modifier TEXT DEFAULT 'normal' CHECK (monster_modifier IN ('normal','mystic','brutal','chaos','giant')),
+                    monster_loot_table_id INTEGER,
                     battle_status TEXT DEFAULT 'active' CHECK(battle_status IN ('active', 'won', 'lost', 'fled')),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES players(id),
                     FOREIGN KEY (monster_id) REFERENCES monsters(monster_id)
                 )             
             """)
@@ -27,10 +38,23 @@ class BattleLogsDB:
             user_id,
             monster_id,
             player_health,
+            player_damage,
+            player_armor,
+            player_speed,
+            player_break_force,
+            player_critical_chance,
+            player_dodge_chance,
             monster_health,
+            monster_damage,
+            monster_armor,
             monster_tenacity,
             monster_speed,
-            monster_level
+            monster_critical_chance,
+            monster_dodge_chance,
+            monster_level,
+            monster_currency_reward,
+            monster_modifier,
+            monster_loot_table_id
     ):
         async with self.db.cursor() as cursor:
             await cursor.execute("""
@@ -38,54 +62,63 @@ class BattleLogsDB:
                     user_id,
                     monster_id,
                     player_health,
+                    player_damage,
+                    player_armor,
+                    player_speed,
+                    player_break_force,
+                    player_critical_chance,
+                    player_dodge_chance,
                     monster_health,
+                    monster_damage,
+                    monster_armor,
                     monster_tenacity,
                     monster_speed,
-                    monster_level
+                    monster_critical_chance,
+                    monster_dodge_chance,
+                    monster_level,
+                    monster_currency_reward,
+                    monster_modifier,
+                    monster_loot_table_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,(
-                        user_id,
-                        monster_id,
-                        player_health,
-                        monster_health,
-                        monster_tenacity,
-                        monster_speed,
-                        monster_level
-                    ))
-
-            battle_id = cursor.lastrowid
+                    user_id,
+                    monster_id,
+                    player_health,
+                    player_damage,
+                    player_armor,
+                    player_speed,
+                    player_break_force,
+                    player_critical_chance,
+                    player_dodge_chance,
+                    monster_health,
+                    monster_damage,
+                    monster_armor,
+                    monster_tenacity,
+                    monster_speed,
+                    monster_critical_chance,
+                    monster_dodge_chance,
+                    monster_level,
+                    monster_currency_reward,
+                    monster_modifier,
+                    monster_loot_table_id
+                ))
 
         await self.db.commit()
+
+        battle_id = cursor.lastrowid
         return battle_id
 
-    async def get_active_battle(self, user_id):
+    async def get_active_battle(self, battle_id):
         async with self.db.cursor() as cursor:
             await cursor.execute("""
-                SELECT * FROM battle_logs WHERE user_id = ? AND battle_status = 'active'
-                ORDER BY battle_id DESC LIMIT 1
-                """, (user_id,))
+                SELECT * FROM battle_logs 
+                WHERE battle_id = ? 
+                """, (battle_id,))
 
             battle = await cursor.fetchone()
 
         return battle
-
-    async def update_battle_state(self, battle_id, player_health, monster_health, turn_number):
-        async with self.db.cursor() as cursor:
-            await cursor.execute("""
-                UPDATE battle_logs 
-                SET player_health  = ?, 
-                    monster_health = ?, 
-                    turn_number    = ?
-                WHERE battle_id = ?
-                """,(
-                        player_health,
-                        monster_health,
-                        turn_number,
-                        battle_id
-                    ))
-
-        await self.db.commit()
 
     async def end_battle(self, battle_id, status):
         async with self.db.cursor() as cursor:

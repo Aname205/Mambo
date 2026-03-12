@@ -14,7 +14,7 @@ class Fish(commands.Cog):
             pool = await self.bot.db.get_fishing_items()
 
             item_id, item_name, item_emoji, item_tier, _ = random.choices(pool, weights=[row[4] for row in pool], k=1)[0]
-            await self.bot.db.add_to_inventory(ctx.author.id, item_id, item_tier)
+            await self.bot.db.add_to_inventory(ctx.author.id, item_id, item_tier, 1)
 
             await ctx.send(f"You reeled in **{item_tier} {item_name}** {item_emoji}")
         except Exception as e:

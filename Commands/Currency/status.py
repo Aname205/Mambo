@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-class EquipSelect(discord.ui.Select):
+class   EquipSelect(discord.ui.Select):
 
     def __init__(self, view, equipments):
 
@@ -66,7 +66,7 @@ class EquipSelect(discord.ui.Select):
 
         equipments = [
             item for item in inventory
-            if item[8] == equipment_type
+            if item[9] == equipment_type
         ]
 
         # rebuild UI
@@ -98,13 +98,13 @@ class StatusView(discord.ui.View):
         self.slot = None
 
     def update_embed(self, message=None):
-        health = self.player[3]
-        damage = self.player[4]
-        armor = self.player[5]
-        speed = self.player[6]
-        break_force = self.player[7]
-        crit = self.player[8]
-        dodge = self.player[9]
+        health = self.player[2]
+        damage = self.player[3]
+        armor = self.player[4]
+        speed = self.player[5]
+        break_force = self.player[6]
+        crit = self.player[7] or 0
+        dodge = self.player[8] or 0
 
         em = discord.Embed(
             color=discord.Color.green()
@@ -126,10 +126,10 @@ class StatusView(discord.ui.View):
         )
 
         # Find equipped equipment
-        weapon_id = self.player[10]
-        armor_id = self.player[11]
-        accessory_1_id = self.player[12]
-        accessory_2_id = self.player[13]
+        weapon_id = self.player[9]
+        armor_id = self.player[10]
+        accessory_1_id = self.player[11]
+        accessory_2_id = self.player[12]
 
         weapon, armor, accessory_1, accessory_2 = self.equipped_items
 
@@ -197,7 +197,7 @@ class StatusView(discord.ui.View):
         # Filter inventory
         equipments = [
             item for item in self.inventory
-            if item[8] == equipment_type
+            if item[9] == equipment_type
         ]
 
         if not equipments:

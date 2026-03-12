@@ -1,7 +1,5 @@
 import discord
 from discord.ext import commands
-from flask import ctx
-
 
 class MarketSelect(discord.ui.Select):
     def __init__(self, view):
@@ -13,7 +11,7 @@ class MarketSelect(discord.ui.Select):
         options = []
 
         for i ,row in enumerate(view.market[start:end], start=start):
-            eq_id, name, emoji, eq_type, health, dmg, armor, speed, break_force, _, price, crit, dodge = row
+            item_id, name, emoji, eq_type, health, dmg, armor, speed, break_force, _, price, crit, dodge = row
 
             options.append(
                 discord.SelectOption(
@@ -67,7 +65,7 @@ class MarketView(discord.ui.View):
             start = self.page * self.per_page
             end = start + self.per_page
 
-            for i, (eq_id, name, emoji, eq_type, health, dmg, armor, speed, break_force, _, price, crit, dodge) \
+            for i, (item_id, name, emoji, eq_type, health, dmg, armor, speed, break_force, _, price, crit, dodge) \
                 in (enumerate(self.market[start:end], start=start)):
 
                 pointer = "⭐ " if i == self.selected else ""
@@ -117,25 +115,7 @@ class MarketView(discord.ui.View):
             if isinstance(item, MarketSelect):
                 self.remove_item(item)
 
-                self.add_item(MarketSelect(self))
-
-    @discord.ui.button(label="➡️")
-    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user != self.ctx.author:
-            await interaction.response.defer()
-            return
-
-        if self.page < self.max_pages:
-            self.page += 1
-            self.selected = self.per_page * self.page
-            self.refresh_select()
-
-        else:
-            self.page = 0
-            self.selected = self.per_page * self.page
-            self.refresh_select()
-
-        await interaction.response.edit_message(embed=self.update_embed(self.ctx), view=self)
+        self.add_item(MarketSelect(self))
 
     @discord.ui.button(label="⬅️")
     async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -150,6 +130,24 @@ class MarketView(discord.ui.View):
 
         else:
             self.page += self.max_pages
+            self.selected = self.per_page * self.page
+            self.refresh_select()
+
+        await interaction.response.edit_message(embed=self.update_embed(self.ctx), view=self)
+
+    @discord.ui.button(label="➡️")
+    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.ctx.author:
+            await interaction.response.defer()
+            return
+
+        if self.page < self.max_pages:
+            self.page += 1
+            self.selected = self.per_page * self.page
+            self.refresh_select()
+
+        else:
+            self.page = 0
             self.selected = self.per_page * self.page
             self.refresh_select()
 
@@ -175,7 +173,7 @@ class MarketView(discord.ui.View):
                 return
 
             await self.ctx.bot.db.update_wallet(self.ctx.author.id, -price)
-            await self.ctx.bot.db.add_to_inventory(self.ctx.author.id, item_id, tier)
+            await self.ctx.bot.db.add_to_inventory(self.ctx.author.id, item_id, tier, 1)
 
             self.inventory = await self.ctx.bot.db.get_inventory(self.ctx.author.id)
 

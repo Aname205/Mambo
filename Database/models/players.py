@@ -10,7 +10,6 @@ class PlayersDB:
                     user_id INTEGER,
                     
                     health INTEGER default 10,
-                    max_health INTEGER default 10,
                     damage INTEGER default 1,
                     armor INTEGER default 0,
                     speed INTEGER default 10,
@@ -130,7 +129,6 @@ class PlayersDB:
             await cursor.execute("""
                 UPDATE players
                 SET health = ?,
-                    max_health = ?,
                     damage = ?,
                     armor = ?,
                     speed = ?,
@@ -138,7 +136,7 @@ class PlayersDB:
                     critical_chance = ?,
                     dodge_chance = ?
                 WHERE user_id = ?
-                """, (total_health, total_health, total_damage, total_armor, total_speed, total_break_force, total_crit, total_dodge, user_id))
+                """, (total_health, total_damage, total_armor, total_speed, total_break_force, total_crit, total_dodge, user_id))
         
         await self.db.commit()
 

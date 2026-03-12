@@ -11,7 +11,7 @@ class InventorySelect(discord.ui.Select):
         options = []
 
         for i, row in enumerate(view.inventory[start:end], start=start):
-            inv_id, item_id, name, emoji, tier, fishing_price, market_price, is_locked, *_ = row
+            inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, is_locked, *_ = row
 
             lock = "🔒 " if is_locked else ""
 
@@ -45,7 +45,7 @@ class InventorySelect(discord.ui.Select):
         )
 
 class InventoryView(discord.ui.View):
-    def __init__(self, ctx, inventory, per_page=18):
+    def __init__(self, ctx, inventory, per_page=8):
         super().__init__(timeout=15)
         self.ctx = ctx
         self.inventory = inventory
@@ -65,7 +65,7 @@ class InventoryView(discord.ui.View):
         start = self.page * self.per_page
         end = start + self.per_page
 
-        for i, (inv_id, item_id, item_name, item_emoji, item_tier, fishing_price,
+        for i, (inv_id, item_id, item_name, item_emoji, item_tier, amount, fishing_price,
                 market_price, is_locked, *_) in enumerate(self.inventory[start:end], start=start):
 
             left_pointer = "⭐ " if i == self.selected else ""
@@ -74,9 +74,9 @@ class InventoryView(discord.ui.View):
             lock_icon = "🔒" if is_locked else ""
 
             em.add_field(
-                name=f"{left_pointer} [{i+1}] {item_tier} {item_name} {item_emoji} {lock_icon}",
+                name=f"{left_pointer} [{i+1}] {item_tier} {item_name} {item_emoji} {lock_icon} ({amount})",
                 value=f"Price: {price} 🪙",
-                inline=True
+                inline=False
             )
         em.set_footer(text=f"Page {self.page+1}/{self.max_pages+1}")
 
@@ -144,7 +144,7 @@ class InventoryView(discord.ui.View):
 
         row = self.inventory[self.selected]
 
-        (inv_id, item_id, name, emoji, tier, fishing_price, market_price, _, _, is_locked, *_) = row
+        (inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, is_locked, *_) = row
 
         if is_locked:
             message = f"**This item is locked and cannot be sold**"
@@ -154,9 +154,15 @@ class InventoryView(discord.ui.View):
         price = fishing_price if fishing_price is not None else market_price
 
         await self.ctx.bot.db.update_wallet(self.ctx.author.id, price)
-        await self.ctx.bot.db.remove_from_inventory(self.ctx.author.id, item_id, 1)
+        await self.ctx.bot.db.remove_from_inventory(self.ctx.author.id, item_id, tier, 1)
 
-        self.inventory.pop(self.selected)
+        row = list(self.inventory[self.selected])
+        row[5] -= 1
+
+        if row[5] <= 0:
+            self.inventory.pop(self.selected)
+        else:
+            self.inventory[self.selected] = tuple(row)
 
         if not self.inventory:
             em = discord.Embed(
@@ -174,6 +180,9 @@ class InventoryView(discord.ui.View):
         if self.selected >= len(self.inventory):
             self.selected = max(0, len(self.inventory) - 1)
 
+        # Ensure selected item is on the correct page
+        self.page = self.selected // self.per_page
+
         self.refresh_select()
 
         message = f"**You sold 1 {tier} {name} {emoji} for {price} 🪙**"
@@ -187,7 +196,7 @@ class InventoryView(discord.ui.View):
             return
 
         row = self.inventory[self.selected]
-        inv_id, item_id, name, emoji, tier, _, _, is_locked, *_ = row
+        inv_id, item_id, name, emoji, tier, amount, _, _, is_locked, *_ = row
 
         if is_locked:
             message = "**This item is already locked**"
@@ -197,7 +206,7 @@ class InventoryView(discord.ui.View):
         await self.ctx.bot.db.set_item_lock(inv_id, True)
 
         row = list(self.inventory[self.selected])
-        row[7] = True
+        row[8] = True
         self.inventory[self.selected] = tuple(row)
         self.refresh_select()
 
@@ -212,7 +221,7 @@ class InventoryView(discord.ui.View):
             return
 
         row = self.inventory[self.selected]
-        inv_id, item_id, name, emoji, tier, _, _, is_locked, *_ = row
+        inv_id, item_id, name, emoji, tier, amount, _, _, is_locked, *_ = row
 
         if not is_locked:
             message = "**This item is already unlocked**"
@@ -222,7 +231,7 @@ class InventoryView(discord.ui.View):
         await self.ctx.bot.db.set_item_lock(inv_id, False)
 
         row = list(self.inventory[self.selected])
-        row[7] = False
+        row[8] = False
         self.inventory[self.selected] = tuple(row)
         self.refresh_select()
 
@@ -267,23 +276,23 @@ class Inventory(commands.Cog):
 
         # Sell all items
         if str(item_name).lower() == 'all' and item_amount is None:
-            amount = 0
+            coin_amount = 0
             item_count = 0
-            for inv_id, item_id, name, emoji, tier, fishing_price, market_price, _, _, is_locked, *_ in inventory:
+            for inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, _, _, is_locked, *_ in inventory:
                 if is_locked:
                     continue  # Skip locked items
                 price = fishing_price if fishing_price is not None else market_price
                 if price is None:
                     continue
-                amount += price
+                coin_amount += price
                 item_count += 1
 
             if item_count == 0:
                 return await ctx.send("You don't have any items to sell")
 
-            await self.bot.db.update_wallet(ctx.author.id, amount)
+            await self.bot.db.update_wallet(ctx.author.id, coin_amount)
             await self.bot.db.remove_all_from_inventory(ctx.author.id)
-            return await ctx.send(f"You sold {item_count} items for {amount} 🪙")
+            return await ctx.send(f"You sold {item_count} items for {coin_amount} 🪙")
 
         # Sell by inventory index
         if item_name.isdigit():
@@ -294,7 +303,7 @@ class Inventory(commands.Cog):
 
             row = inventory[index]
 
-            inv_id, item_id, name, emoji, tier, fishing_price, market_price, _, _, is_locked, *_ = row
+            inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, _, _, is_locked, *_ = row
             
             if is_locked:
                 return await ctx.send(f"**{tier} {name}** {emoji} is locked and cannot be sold")
@@ -302,7 +311,7 @@ class Inventory(commands.Cog):
             price = fishing_price if fishing_price is not None else market_price
 
             await self.bot.db.update_wallet(ctx.author.id, price)
-            await self.bot.db.remove_from_inventory(ctx.author.id, item_id, 1)
+            await self.bot.db.remove_from_inventory(ctx.author.id, item_id, tier, 1)
 
             return await ctx.send(f"You sold 1 **{tier} {name}** {emoji} for {price} 🪙" )
 
@@ -310,8 +319,8 @@ class Inventory(commands.Cog):
         normalized_name = item_name.lower()
 
         matching_rows = [
-            (inv_id, item_id, name, emoji, tier, fishing_price, market_price, is_locked, *_)
-            for inv_id, item_id, name, emoji, tier, fishing_price, market_price, _, _, is_locked, *_ in inventory
+            (inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, is_locked, *_)
+            for inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, _, _, is_locked, *_ in inventory
             if name.lower() == normalized_name
         ]
 
@@ -319,7 +328,7 @@ class Inventory(commands.Cog):
             return await ctx.send("You don't have that item in your inventory.")
 
         # Check if item is locked
-        if matching_rows[0][7]:  # is_locked is at index 7
+        if matching_rows[0][8]:  # is_locked is at index 8
             return await ctx.send(f"**{matching_rows[0][4]} {matching_rows[0][2]}** {matching_rows[0][3]} is locked and cannot be sold. 🔒")
 
         # Determine how many to sell
@@ -335,15 +344,15 @@ class Inventory(commands.Cog):
             return await ctx.send(f"You don't have enough {item_name}.")
 
         # All copies share the same price, get it from the first row
-        inv_id, item_id, name, emoji, tier, fishing_price, market_price, is_locked, *_ = matching_rows[0]
+        inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, is_locked, *_ = matching_rows[0]
         price = fishing_price if fishing_price is not None else market_price
 
-        amount = int(price) * quantity_to_sell
+        coin_amount = int(price) * quantity_to_sell
 
-        await self.bot.db.update_wallet(ctx.author.id, amount)
-        await self.bot.db.remove_from_inventory(ctx.author.id, item_id, quantity_to_sell)
+        await self.bot.db.update_wallet(ctx.author.id, coin_amount)
+        await self.bot.db.remove_from_inventory(ctx.author.id, item_id, tier, quantity_to_sell)
 
-        return await ctx.send(f"You sold {quantity_to_sell} **{tier} {name}** {emoji} for {amount}")
+        return await ctx.send(f"You sold {quantity_to_sell} **{tier} {name}** {emoji} for {coin_amount}")
 
     # Lock/Unlock item by index
     @commands.command()
@@ -362,7 +371,7 @@ class Inventory(commands.Cog):
             return await ctx.send("Invalid item index.")
 
         row = inventory[index]
-        inv_id, item_id, name, emoji, tier, _, _, _, _, is_locked, *_ = row
+        inv_id, item_id, name, emoji, tier, amount, _, _, _, _, is_locked, *_ = row
 
         if is_locked:
             return await ctx.send(f"**{tier} {name}** {emoji} is already locked")
@@ -387,7 +396,7 @@ class Inventory(commands.Cog):
             return await ctx.send("Invalid item index")
 
         row = inventory[index]
-        inv_id, item_id, name, emoji, tier, _, _, _, _, is_locked, *_ = row
+        inv_id, item_id, name, emoji, tier, amount, _, _, _, _, is_locked, *_ = row
 
         if not is_locked:
             return await ctx.send(f"**{tier} {name}** {emoji} is already unlocked")

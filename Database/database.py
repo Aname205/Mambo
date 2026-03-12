@@ -1,6 +1,7 @@
 import aiosqlite
 from Database.models import (BalanceDB, ItemsDB, FishingItemsDB, InventoriesDB, LotteriesDB,
-                             LotteryPlayersDB, MarketItemsDB, PlayersDB, EquipmentsDB, MonsterDB, BattleLogsDB)
+                             LotteryPlayersDB, MarketItemsDB, PlayersDB, EquipmentsDB,
+                             MonsterDB, BattleLogsDB, PvpLogsDB, LootTablesDB, LootTableItemsDB)
 
 
 class Database:
@@ -18,6 +19,9 @@ class Database:
         self.equipments = None
         self.monsters = None
         self.battle_logs = None
+        self.pvp_logs = None
+        self.loot_tables = None
+        self.loot_table_items = None
 
     async def connect(self):
         self.db = await aiosqlite.connect("../database.db")
@@ -37,6 +41,9 @@ class Database:
         self.equipments = EquipmentsDB(self.db)
         self.monsters = MonsterDB(self.db)
         self.battle_logs = BattleLogsDB(self.db)
+        self.pvp_logs = PvpLogsDB(self.db)
+        self.loot_tables = LootTablesDB(self.db)
+        self.loot_table_items = LootTableItemsDB(self.db)
 
         # Create tables
         await self.balance.create_table()
@@ -50,6 +57,9 @@ class Database:
         await self.equipments.create_table()
         await self.monsters.create_table()
         await self.battle_logs.create_table()
+        await self.pvp_logs.create_table()
+        await self.loot_tables.create_table()
+        await self.loot_table_items.create_table()
 
     # ============ SHORTCUT METHODS (để không cần sửa code cũ) ============
     async def get_balance(self, user_id):
@@ -94,11 +104,11 @@ class Database:
     async def get_inventory(self, user_id):
         return await self.inventories.get_inventory(user_id)
 
-    async def add_to_inventory(self, user_id, item_id, item_tier):
-        return await self.inventories.add_to_inventory(user_id, item_id, item_tier)
+    async def add_to_inventory(self, user_id, item_id, item_tier, amount):
+        return await self.inventories.add_to_inventory(user_id, item_id, item_tier, amount)
 
-    async def remove_from_inventory(self, user_id, item_id, amount):
-        return await self.inventories.remove_from_inventory(user_id, item_id, amount)
+    async def remove_from_inventory(self, user_id, item_id, item_tier, amount):
+        return await self.inventories.remove_from_inventory(user_id, item_id, item_tier, amount)
 
     async def remove_all_from_inventory(self, user_id):
         return await self.inventories.remove_all_from_inventory(user_id)
@@ -171,6 +181,8 @@ class Database:
             armor=0,
             tenacity=0,
             speed=5,
+            critical_chance=0,
+            dodge_chance=0,
             level=1,
             currency_reward=0,
             monster_modifier="normal",
@@ -183,6 +195,8 @@ class Database:
             armor,
             tenacity,
             speed,
+            critical_chance,
+            dodge_chance,
             level,
             currency_reward,
             monster_modifier,
@@ -204,29 +218,69 @@ class Database:
     async def update_monster(self, monster_id, **kwargs):
         return await self.monsters.update_monster(monster_id, **kwargs)
 
+    async def generate_monsters(self):
+        return await self.monsters.generate_monsters()
+
+    async def get_random_monster(self):
+        return await self.monsters.get_random_monster()
+
+    async def ensure_monsters(self):
+        monsters = await self.monsters.get_all_monsters()
+        if not monsters:
+            loot_tables = await self.loot_tables.generate_default_loot_tables(
+                self.loot_table_items
+            )
+            await self.monsters.generate_monsters(loot_tables)
+
     # Battle log shortcuts
     async def start_battle(
             self,
             user_id,
             monster_id,
             player_health,
+            player_damage,
+            player_armor,
+            player_speed,
+            player_break_force,
+            player_critical_chance,
+            player_dodge_chance,
             monster_health,
+            monster_damage,
+            monster_armor,
             monster_tenacity,
             monster_speed,
-            monster_level
+            monster_critical_chance,
+            monster_dodge_chance,
+            monster_level,
+            monster_currency_reward,
+            monster_modifier,
+            monster_loot_table_id
     ):
         return await self.battle_logs.start_battle(
             user_id,
             monster_id,
             player_health,
+            player_damage,
+            player_armor,
+            player_speed,
+            player_break_force,
+            player_critical_chance,
+            player_dodge_chance,
             monster_health,
+            monster_damage,
+            monster_armor,
             monster_tenacity,
             monster_speed,
-            monster_level
+            monster_critical_chance,
+            monster_dodge_chance,
+            monster_level,
+            monster_currency_reward,
+            monster_modifier,
+            monster_loot_table_id
         )
 
-    async def get_active_battle(self, user_id):
-        return await self.battle_logs.get_active_battle(user_id)
+    async def get_active_battle(self, battle_id):
+        return await self.battle_logs.get_active_battle(battle_id)
 
     async def update_battle_state(self, battle_id, player_health, monster_health, turn_number):
         return await self.battle_logs.update_battle_state(
@@ -238,6 +292,47 @@ class Database:
 
     async def end_battle(self, battle_id, status):
         return await self.battle_logs.end_battle(battle_id, status)
+
+    # Pvp log shortcuts
+    async def start_pvp_battle(
+            self,
+            player_1,
+            player_2,
+            player_1_health,
+            player_2_health,
+            player_1_damage,
+            player_2_damage,
+            player_1_armor,
+            player_2_armor,
+            player_1_speed,
+            player_2_speed,
+            player_1_critical_chance,
+            player_2_critical_chance,
+            player_1_dodge_chance,
+            player_2_dodge_chance
+    ):
+        return await self.pvp_logs.start_pvp_battle(
+            player_1,
+            player_2,
+            player_1_health,
+            player_2_health,
+            player_1_damage,
+            player_2_damage,
+            player_1_armor,
+            player_2_armor,
+            player_1_speed,
+            player_2_speed,
+            player_1_critical_chance,
+            player_2_critical_chance,
+            player_1_dodge_chance,
+            player_2_dodge_chance
+        )
+
+    async def get_active_pvp_battle(self, battle_id):
+        return await self.pvp_logs.get_active_pvp_battle(battle_id)
+
+    async def end_pvp_battle(self, battle_id, status):
+        return await self.pvp_logs.end_pvp_battle(battle_id, status)
 
     # Lottery shortcuts
     async def create_lottery(self, enrol_price, total_price, start_date, end_date):
@@ -270,4 +365,34 @@ class Database:
 
     async def count_lottery_players(self, lottery_id):
         return await self.lottery_players.count_players(lottery_id)
+
+    # Loot tables shortcuts
+    async def get_loot_table(self, loot_table_id):
+        return await self.loot_tables.get_loot_table(loot_table_id)
+
+    async def generate_default_loot_tables(self):
+        return await self.loot_tables.generate_default_loot_tables()
+
+    # Loot table items shortcuts
+    async def add_loot_items(
+            self,
+            loot_table_id,
+            item_id,
+            drop_chance,
+            min_amount=1,
+            max_amount=1
+    ):
+        return await self.loot_table_items.add_loot_items(
+            loot_table_id,
+            item_id,
+            drop_chance,
+            min_amount,
+            max_amount
+        )
+
+    async def get_loot_items(self, loot_table_id):
+        return await self.loot_table_items.get_loot_items(loot_table_id)
+
+    async def roll_loot(self, loot_table_id, modifier):
+        return await self.loot_table_items.roll_loot(loot_table_id, modifier)
 

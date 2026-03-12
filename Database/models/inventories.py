@@ -10,6 +10,7 @@ class InventoriesDB:
             user_id INTEGER,
             item_id INTEGER,
             item_tier TEXT,
+            amount INTEGER DEFAULT 1,
             is_lock BOOLEAN DEFAULT 0,
             FOREIGN KEY (item_id) REFERENCES items(id)
         )
@@ -25,6 +26,7 @@ class InventoriesDB:
                     i.name, 
                     i.emoji, 
                     inv.item_tier,
+                    inv.amount,
                     fi.price,
                     COALESCE(em.price, mi.price) AS market_price,
                     inv.is_lock,
@@ -48,24 +50,84 @@ class InventoriesDB:
             )
             return await cursor.fetchall()
 
-    async def add_to_inventory(self, user_id, item_id, item_tier):
-        async with self.db.cursor() as cursor:
-            await cursor.execute("""
-                INSERT INTO inventories(user_id, item_id, item_tier, is_lock)
-                VALUES(?,?,?,0) """, (user_id, item_id, item_tier)
-            )
-            await self.db.commit()
+    async def add_to_inventory(self, user_id, item_id, item_tier, amount):
+        stackable = await self.get_item_stackable(item_id)
 
-    async def remove_from_inventory(self, user_id, item_id, amount):
         async with self.db.cursor() as cursor:
-            await cursor.execute("""
-                DELETE FROM inventories
-                WHERE id IN (
-                    SELECT id FROM inventories
-                    WHERE user_id = ? AND item_id = ? LIMIT ?
-                )""", (user_id, item_id, amount)
-            )
-            await self.db.commit()
+
+            if stackable:
+                # stack items
+                await cursor.execute("""
+                     SELECT amount
+                     FROM inventories
+                     WHERE user_id = ?
+                       AND item_id = ?
+                       AND item_tier = ?
+                     """, (user_id, item_id, item_tier))
+
+                row = await cursor.fetchone()
+
+                if row:
+                    await cursor.execute("""
+                         UPDATE inventories
+                         SET amount = amount + ?
+                         WHERE user_id = ?
+                           AND item_id = ?
+                           AND item_tier = ?
+                         """, (amount, user_id, item_id, item_tier))
+
+                else:
+                    await cursor.execute("""
+                         INSERT INTO inventories(user_id, item_id, item_tier, amount)
+                         VALUES (?, ?, ?, ?)
+                         """, (user_id, item_id, item_tier, amount))
+
+            else:
+                # non-stackable (equipment)
+                for _ in range(amount):
+                    await cursor.execute("""
+                         INSERT INTO inventories(user_id, item_id, item_tier, amount)
+                         VALUES (?, ?, ?, 1)
+                         """, (user_id, item_id, item_tier))
+        await self.db.commit()
+
+    async def remove_from_inventory(self, user_id, item_id, item_tier, amount):
+        stackable = await self.get_item_stackable(item_id)
+
+        async with self.db.cursor() as cursor:
+
+            if stackable:
+                await cursor.execute("""
+                     UPDATE inventories
+                     SET amount = amount - ?
+                     WHERE user_id = ?
+                       AND item_id = ?
+                       AND item_tier = ?
+                     """, (amount, user_id, item_id, item_tier))
+
+                await cursor.execute("""
+                     DELETE
+                     FROM inventories
+                     WHERE user_id = ?
+                       AND item_id = ?
+                       AND item_tier = ?
+                       AND amount <= 0
+                     """, (user_id, item_id, item_tier))
+
+            else:
+                await cursor.execute("""
+                     DELETE
+                     FROM inventories
+                     WHERE id IN (SELECT id
+                          FROM inventories
+                          WHERE user_id = ?
+                            AND item_id = ?
+                            AND item_tier = ?
+                         LIMIT ?
+                         )
+                     """, (user_id, item_id, item_tier, amount))
+
+        await self.db.commit()
 
     async def remove_all_from_inventory(self, user_id):
         async with self.db.cursor() as cursor:
@@ -83,3 +145,19 @@ class InventoriesDB:
                 (1 if is_locked else 0, item_id)
             )
         await self.db.commit()
+
+    async def get_item_stackable(self, item_id):
+        async with self.db.cursor() as cursor:
+            await cursor.execute(
+                "SELECT item_type FROM items WHERE id = ?",
+                (item_id,)
+            )
+
+            row = await cursor.fetchone()
+
+            if not row:
+                return True
+
+            item_type = row[0]
+
+            return item_type not in ("equipment")
