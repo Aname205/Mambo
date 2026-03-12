@@ -9,7 +9,7 @@ class LootTablesDB:
             await cursor.execute("""
                 CREATE TABLE IF NOT EXISTS loot_tables(
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    monster_name TEXT
+                    monster_name TEXT UNIQUE
                 )
             """)
         await self.db.commit()
@@ -22,63 +22,94 @@ class LootTablesDB:
             )
             return await cursor.fetchone()
 
+    async def _get_or_create_loot_table(self, monster_name):
+        """Get existing loot table id or create new one (upsert)."""
+        async with self.db.cursor() as cursor:
+            await cursor.execute(
+                "SELECT id FROM loot_tables WHERE LOWER(monster_name) = LOWER(?)",
+                (monster_name,)
+            )
+            row = await cursor.fetchone()
+            if row:
+                return row[0]
+
+            await cursor.execute(
+                "INSERT INTO loot_tables(monster_name) VALUES (?)",
+                (monster_name,)
+            )
+            await self.db.commit()
+            return cursor.lastrowid
+
+    async def _get_item_id(self, item_name):
+        """Get item_id by name."""
+        async with self.db.cursor() as cursor:
+            await cursor.execute(
+                "SELECT id FROM items WHERE LOWER(name) = LOWER(?)",
+                (item_name,)
+            )
+            row = await cursor.fetchone()
+            return row[0] if row else None
+
     async def generate_default_loot_tables(self, loot_table_items_db):
+        """Generate default loot tables and items, auto-update on restart."""
+
+        # Define loot table data: monster_name -> [(item_name, drop_chance, min, max), ...]
+        LOOT_DATA = {
+            "slime": [
+                ("Rusty Copper Sword", 0.2, 1, 1),
+                ("Rusty Copper Armor", 0.2, 1, 1),
+                ("Rusty Copper Axe", 0.2, 1, 1),
+                ("Rusty Copper Knife", 0.2, 1, 1),
+            ],
+            "goblin": [
+                ("Rusty Copper Sword", 0.2, 1, 1),
+                ("Rusty Copper Armor", 0.2, 1, 1),
+                ("Rusty Copper Axe", 0.2, 1, 1),
+                ("Rusty Copper Knife", 0.2, 1, 1),
+                ("Copper Sword", 0.1, 1, 1),
+                ("Copper Armor", 0.1, 1, 1),
+            ],
+            "wolf": [
+                ("Copper Sword", 0.2, 1, 1),
+                ("Copper Armor", 0.2, 1, 1),
+            ],
+            "orc": [
+                ("Copper Sword", 0.4, 1, 1),
+                ("Copper Armor", 0.4, 1, 1),
+                ("Orc Mace", 1.0, 1, 1),
+            ],
+        }
 
         tables = {}
+        valid_loot_entries = []  # Track (loot_table_id, item_id) for cleanup
 
-        async with self.db.cursor() as cursor:
-            # Slime table
-            await cursor.execute("""
-                 INSERT INTO loot_tables(monster_name)
-                 VALUES ('slime')
-                 """)
-            slime_loot_table_id = cursor.lastrowid
-            tables["Slime"] = slime_loot_table_id
+        for monster_name, items in LOOT_DATA.items():
+            # Get or create loot table
+            loot_table_id = await self._get_or_create_loot_table(monster_name)
+            tables[monster_name.capitalize()] = loot_table_id
 
-            # Goblin table
-            await cursor.execute("""
-                 INSERT INTO loot_tables(monster_name)
-                 VALUES ('goblin')
-                 """)
-            goblin_loot_table_id = cursor.lastrowid
-            tables["Goblin"] = goblin_loot_table_id
+            # Add items to loot table
+            for item_name, drop_chance, min_amt, max_amt in items:
+                item_id = await self._get_item_id(item_name)
+                if item_id:
+                    await loot_table_items_db.add_loot_item(
+                        loot_table_id, item_id,
+                        drop_chance=drop_chance,
+                        min_amount=min_amt,
+                        max_amount=max_amt
+                    )
+                    valid_loot_entries.append((loot_table_id, item_id))
 
-            # Wolf table
-            await cursor.execute("""
-                 INSERT INTO loot_tables(monster_name)
-                 VALUES ('wolf')
-                 """)
-            wolf_loot_table_id = cursor.lastrowid
-            tables["Wolf"] = wolf_loot_table_id
+        # Remove loot_table_items not in current pool
+        if valid_loot_entries:
+            async with self.db.cursor() as cursor:
+                placeholders = ",".join(["(?, ?)"] * len(valid_loot_entries))
+                values = [v for pair in valid_loot_entries for v in pair]
+                await cursor.execute(f"""
+                    DELETE FROM loot_table_items
+                    WHERE (loot_table_id, item_id) NOT IN ({placeholders})
+                """, values)
+            await self.db.commit()
 
-            # Orc table
-            await cursor.execute("""
-                 INSERT INTO loot_tables(monster_name)
-                 VALUES ('orc')
-                 """)
-            orc_loot_table_id = cursor.lastrowid
-            tables["Orc"] = orc_loot_table_id
-
-        await self.db.commit()
-
-        # Add items to the tables
-        # Fields: loot_table_id, items_id, ...
-        await loot_table_items_db.add_loot_item(slime_loot_table_id, 10, drop_chance=0.2, min_amount=1, max_amount=1)
-        await loot_table_items_db.add_loot_item(slime_loot_table_id, 11, drop_chance=0.2, min_amount=1, max_amount=1)
-        await loot_table_items_db.add_loot_item(slime_loot_table_id, 12, drop_chance=0.2, min_amount=1, max_amount=1)
-        await loot_table_items_db.add_loot_item(slime_loot_table_id, 13, drop_chance=0.2, min_amount=1, max_amount=1)
-
-        await loot_table_items_db.add_loot_item(goblin_loot_table_id, 10, drop_chance=0.2, min_amount=1, max_amount=1)
-        await loot_table_items_db.add_loot_item(goblin_loot_table_id, 11, drop_chance=0.2, min_amount=1, max_amount=1)
-        await loot_table_items_db.add_loot_item(goblin_loot_table_id, 12, drop_chance=0.2, min_amount=1, max_amount=1)
-        await loot_table_items_db.add_loot_item(goblin_loot_table_id, 13, drop_chance=0.2, min_amount=1, max_amount=1)
-        await loot_table_items_db.add_loot_item(goblin_loot_table_id, 14, drop_chance=0.1, min_amount=1, max_amount=1)
-        await loot_table_items_db.add_loot_item(goblin_loot_table_id, 15, drop_chance=0.1, min_amount=1, max_amount=1)
-
-        await loot_table_items_db.add_loot_item(wolf_loot_table_id, 14, drop_chance=0.2, min_amount=1, max_amount=1)
-        await loot_table_items_db.add_loot_item(wolf_loot_table_id, 15, drop_chance=0.2, min_amount=1, max_amount=1)
-
-        await loot_table_items_db.add_loot_item(orc_loot_table_id, 14, drop_chance=0.4, min_amount=1, max_amount=1)
-        await loot_table_items_db.add_loot_item(orc_loot_table_id, 15, drop_chance=0.4, min_amount=1, max_amount=1)
 
         return tables

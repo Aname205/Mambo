@@ -1,3 +1,4 @@
+import os
 import random
 import discord
 import discord.ext.commands as commands
@@ -75,8 +76,9 @@ class Wordle(commands.Cog):
         self.bot = bot
         self.active_games = {}
 
-        # Open words file
-        with open("../wordle.txt") as f:
+        # Open words file using path relative to this file's location
+        words_path = os.path.join(os.path.dirname(__file__), "..", "..", "wordle.txt")
+        with open(words_path) as f:
             self.words = [w.strip() for w in f.readlines()]
 
     @commands.command()

@@ -5,6 +5,13 @@ import random
 
 TURN_DELAY = 1
 
+
+def calculate_scaled_damage(attack, defense):
+    """Common mitigation formula: atk * (100 / (100 + def))."""
+    denom = 100 + max(0, defense)
+    return max(0.0, attack * (100 / denom))
+
+
 class Duel(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -68,10 +75,7 @@ class Duel(commands.Cog):
                 if random.random() < p2_dodge:
                     battle_log.append(f"<@{p1_id}> attacked but <@{p2_id}> **dodged** 👟")
                 else:
-
-                    base_damage = p1_damage - p2_armor
-                    if base_damage < 0:
-                        base_damage = 0
+                    base_damage = calculate_scaled_damage(p1_damage, p2_armor)
                     damage = int(base_damage * random.uniform(0.8, 1.2))
 
                     if random.random() < p1_crit:
@@ -96,10 +100,7 @@ class Duel(commands.Cog):
                 if random.random() < p1_dodge:
                     battle_log.append(f"<@{p2_id}> attacked but <@{p1_id}> **dodged** 👟")
                 else:
-
-                    base_damage = p2_damage - p1_armor
-                    if base_damage < 0:
-                        base_damage = 0
+                    base_damage = calculate_scaled_damage(p2_damage, p1_armor)
                     damage = int(base_damage * random.uniform(0.8, 1.2))
 
                     if random.random() < p2_crit:

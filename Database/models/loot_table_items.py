@@ -57,7 +57,7 @@ class LootTableItemsDB:
     async def get_loot_items(self, loot_table_id):
         async with self.db.cursor() as cursor:
             await cursor.execute("""
-                SELECT 
+                SELECT
                     lti.item_id,
                     lti.drop_chance,
                     lti.min_amount,

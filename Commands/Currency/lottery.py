@@ -5,7 +5,7 @@ from discord.ext import commands, tasks
 
 # ============ CONFIGURATION ============
 ENROL_PRICE = 100           # Ticket price per entry
-INTERVAL_MINUTES = 3600        # Auto-draw every N minutes
+INTERVAL_TIMES = 24        # Auto-draw every N hours
 NUMBER_RANGE = (1, 100)     # Players pick a number in this range
 ANNOUNCEMENT_CHANNEL = "lottery-notice-test"  # Fixed channel name for draw results
 
@@ -37,7 +37,7 @@ class Lottery(commands.Cog):
         lottery = await self.bot.db.get_active_lottery()
         if lottery is None:
             now = datetime.now(timezone.utc)
-            end = now + timedelta(minutes=INTERVAL_MINUTES)
+            end = now + timedelta(hours=INTERVAL_TIMES)
             await self.bot.db.create_lottery(ENROL_PRICE, 0, now.isoformat(), end.isoformat())
 
     async def perform_draw(self):
@@ -74,7 +74,7 @@ class Lottery(commands.Cog):
 
         # Create a new session immediately
         now = datetime.now(timezone.utc)
-        end = now + timedelta(minutes=INTERVAL_MINUTES)
+        end = now + timedelta(hours=INTERVAL_TIMES)
         await self.bot.db.create_lottery(ENROL_PRICE, rollover, now.isoformat(), end.isoformat())
 
         return {

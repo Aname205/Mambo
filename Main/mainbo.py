@@ -21,6 +21,30 @@ intents.reactions = True
 
 bot = commands.Bot(command_prefix=('m', 'M'), intents=intents, case_insensitive=True, help_command=None)
 
+
+async def start_bot_with_retry(max_retries=8, base_delay=5):
+    delay = base_delay
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            await bot.start(token)
+            return
+        except discord.DiscordServerError as e:
+            if attempt == max_retries:
+                raise
+            print(f"[DiscordServerError] attempt {attempt}/{max_retries}: {e}. Retrying in {delay}s...")
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 60)
+        except discord.HTTPException as e:
+            # Retry only transient HTTP 5xx errors.
+            if 500 <= getattr(e, "status", 0) < 600 and attempt < max_retries:
+                print(f"[HTTP {e.status}] attempt {attempt}/{max_retries}: {e}. Retrying in {delay}s...")
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, 60)
+            else:
+                raise
+
+
 async def main():
     async with bot:
         keep_alive()
@@ -46,6 +70,6 @@ async def main():
         await bot.load_extension("Commands.Currency.wordle")
         await bot.load_extension("Commands.Currency.duel")
         await bot.load_extension("Commands.Currency.hunt")
-        await bot.start(token)
+        await start_bot_with_retry()
 
 asyncio.run(main())

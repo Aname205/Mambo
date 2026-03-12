@@ -5,9 +5,46 @@ import random
 
 TURN_DELAY = 1
 
+
+def calculate_scaled_damage(attack, defense):
+    """Common mitigation formula: atk * (100 / (100 + def))."""
+    denom = 100 + max(0, defense)
+    return max(0.0, attack * (100 / denom))
+
+
 class Hunt(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+
+    async def _resolve_monster(self, monster_name: str):
+        """Resolve a monster by exact/prefix/contains matching. Returns (monster, error_message)."""
+        query = monster_name.strip().lower()
+        if not query:
+            return None, "Please provide a monster name."
+
+        all_monsters = await self.bot.db.get_all_monsters()
+        if not all_monsters:
+            return None, "No monsters found in database."
+
+        exact = [m for m in all_monsters if str(m[1]).lower() == query]
+        if exact:
+            return exact[0], None
+
+        prefix = [m for m in all_monsters if str(m[1]).lower().startswith(query)]
+        if len(prefix) == 1:
+            return prefix[0], None
+        if len(prefix) > 1:
+            options = ", ".join(m[1] for m in prefix[:5])
+            return None, f"Multiple monsters matched: **{options}**. Please be more specific."
+
+        contains = [m for m in all_monsters if query in str(m[1]).lower()]
+        if len(contains) == 1:
+            return contains[0], None
+        if len(contains) > 1:
+            options = ", ".join(m[1] for m in contains[:5])
+            return None, f"Multiple monsters matched: **{options}**. Please be more specific."
+
+        return None, f"Monster **{monster_name}** not found. Use a more specific name."
 
     async def run_monster_battle(self, ctx, battle_id):
 
@@ -73,9 +110,7 @@ class Hunt(commands.Cog):
                     battle_log.append("👹 Monster **dodged** your attack")
                 else:
 
-                    base_damage = p_damage - m_armor
-                    base_damage = max(base_damage, 0)
-
+                    base_damage = calculate_scaled_damage(p_damage, m_armor)
                     damage = int(base_damage * random.uniform(0.8, 1.2))
 
                     if is_stunned:
@@ -117,9 +152,7 @@ class Hunt(commands.Cog):
                         battle_log.append("💨 You **dodged** the monster attack")
                     else:
 
-                        base_damage = m_damage - p_armor
-                        base_damage = max(base_damage, 0)
-
+                        base_damage = calculate_scaled_damage(m_damage, p_armor)
                         damage = int(base_damage * random.uniform(0.8, 1.2))
 
                         if random.random() < m_crit:
@@ -239,6 +272,132 @@ class Hunt(commands.Cog):
         embed.add_field(name="Monster HP", value=f"👹 ❤️ {max(0,m_hp)}")
 
         await message.edit(embed=embed)
+
+    @commands.command(name="monsterinfo", aliases=["mi"])
+    async def monsterinfo(self, ctx, *, name: str = None):
+        """Show detailed monster information by name."""
+        if not name:
+            return await ctx.send("Usage: `mmonsterinfo <name>`")
+
+        # Prefer Normal variant when user provides base monster name (e.g., 'slime').
+        selected_monster = None
+        query = name.strip().lower()
+        modifiers = {"normal", "mystic", "brutal", "chaos", "giant"}
+        tokens = query.split()
+
+        if tokens and tokens[0] not in modifiers:
+            all_monsters = await self.bot.db.get_all_monsters()
+            normal_name = f"normal {query}"
+            normal_match = [m for m in all_monsters if str(m[1]).lower() == normal_name]
+            if normal_match:
+                selected_monster = normal_match[0]
+
+        if selected_monster is None:
+            selected_monster, error = await self._resolve_monster(name)
+            if error:
+                return await ctx.send(error)
+
+        monster = selected_monster
+
+        (
+            monster_id,
+            monster_name,
+            health,
+            damage,
+            armor,
+            tenacity,
+            speed,
+            critical_chance,
+            dodge_chance,
+            level,
+            currency_reward,
+            monster_modifier,
+            loot_table_id,
+        ) = monster
+
+        em = discord.Embed(title=f"👹 {monster_name}", color=discord.Color.dark_red())
+        em.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar.url)
+        em.add_field(name="ID", value=str(monster_id), inline=True)
+        em.add_field(name="Modifier", value=monster_modifier, inline=True)
+        em.add_field(name="Level", value=str(level), inline=True)
+
+        em.add_field(
+            name="Stats",
+            value=(
+                f"❤️ Health: **{health}**\n"
+                f"⚔️ Damage: **{damage}**\n"
+                f"🛡️ Armor: **{armor}**\n"
+                f"🧱 Tenacity: **{tenacity}**\n"
+                f"💨 Speed: **{speed}**\n"
+                f"🎯 Crit: **{critical_chance * 100:.1f}%**\n"
+                f"👟 Dodge: **{dodge_chance * 100:.1f}%**\n"
+                f"💰 Reward: **{currency_reward}** 🪙"
+            ),
+            inline=False,
+        )
+
+        if loot_table_id:
+            loot_items = await self.bot.db.get_loot_items(loot_table_id)
+            if loot_items:
+                # Tier base chances (normal modifier)
+                tier_chances = {
+                    "common": 0.745,
+                    "uncommon": 0.15,
+                    "rare": 0.08,
+                    "epic": 0.02,
+                    "legendary": 0.005
+                }
+
+                # Group by (item_id, tier) to count items per tier
+                # and group unique items
+                tier_item_count = {}  # tier -> count of items
+                item_info = {}        # item_id -> {name, emoji, drop_chance, tiers: []}
+
+                for item in loot_items:
+                    item_id, drop_chance, min_amount, max_amount, item_name, emoji, item_type, item_tier = item
+
+                    # Count items per tier
+                    if item_tier:
+                        tier_item_count[item_tier] = tier_item_count.get(item_tier, 0) + 1
+
+                    # Store item info (dedupe by item_id)
+                    if item_id not in item_info:
+                        item_info[item_id] = {
+                            "name": item_name,
+                            "emoji": emoji,
+                            "drop_chance": drop_chance,
+                            "min_amount": min_amount,
+                            "max_amount": max_amount,
+                            "tiers": []
+                        }
+                    if item_tier and item_tier not in item_info[item_id]["tiers"]:
+                        item_info[item_id]["tiers"].append(item_tier)
+
+                # Calculate actual drop rate per item per roll
+                # Formula: sum over tiers of (tier_chance × (1/items_in_tier) × drop_chance)
+                lines = []
+                for item_id, data in item_info.items():
+                    tiers = data["tiers"]
+                    if not tiers:
+                        actual_rate = data['drop_chance']
+                    else:
+                        actual_rate = 0
+                        for tier in tiers:
+                            t_chance = tier_chances.get(tier, 0)
+                            items_in_tier = tier_item_count.get(tier, 1)
+                            # P(this tier) × P(pick this item | tier) × P(drop | picked)
+                            actual_rate += t_chance * (1 / items_in_tier) * data['drop_chance']
+
+                    lines.append(
+                        f"{data['emoji']} **{data['name']}** - {actual_rate * 100:.1f}% x{data['min_amount']}-{data['max_amount']}"
+                    )
+                em.add_field(name="Loot Table", value="\n".join(lines), inline=False)
+            else:
+                em.add_field(name="Loot Table", value="No loot entries.", inline=False)
+        else:
+            em.add_field(name="Loot Table", value="No loot table assigned.", inline=False)
+
+        await ctx.send(embed=em)
 
     @commands.command()
     async def hunt(self, ctx):

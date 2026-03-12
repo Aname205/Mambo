@@ -40,38 +40,78 @@ class MonsterDB:
         loot_table_id=None
     ):
         async with self.db.cursor() as cursor:
-            await cursor.execute("""
-                INSERT INTO monsters(
-                    name, 
-                    health, 
-                    damage, 
+            # Upsert by name (case-insensitive): update if exists, otherwise insert.
+            await cursor.execute(
+                "SELECT monster_id FROM monsters WHERE name = ? COLLATE NOCASE",
+                (name,)
+            )
+            existing = await cursor.fetchone()
+
+            if existing:
+                monster_id = existing[0]
+                await cursor.execute("""
+                    UPDATE monsters
+                    SET
+                        name = ?,
+                        health = ?,
+                        damage = ?,
+                        armor = ?,
+                        tenacity = ?,
+                        speed = ?,
+                        critical_chance = ?,
+                        dodge_chance = ?,
+                        level = ?,
+                        currency_reward = ?,
+                        monster_modifier = ?,
+                        loot_table_id = ?
+                    WHERE monster_id = ?
+                """, (
+                    name,
+                    health,
+                    damage,
                     armor,
-                    tenacity, 
+                    tenacity,
                     speed,
                     critical_chance,
                     dodge_chance,
-                    level, 
+                    level,
                     currency_reward,
-                    monster_modifier, 
-                    loot_table_id
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,(
-                name,
-                health,
-                damage,
-                armor,
-                tenacity,
-                speed,
-                critical_chance,
-                dodge_chance,
-                level,
-                currency_reward,
-                monster_modifier,
-                loot_table_id
-            ))
-
-            monster_id = cursor.lastrowid
+                    monster_modifier,
+                    loot_table_id,
+                    monster_id,
+                ))
+            else:
+                await cursor.execute("""
+                    INSERT INTO monsters(
+                        name,
+                        health,
+                        damage,
+                        armor,
+                        tenacity,
+                        speed,
+                        critical_chance,
+                        dodge_chance,
+                        level,
+                        currency_reward,
+                        monster_modifier,
+                        loot_table_id
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    name,
+                    health,
+                    damage,
+                    armor,
+                    tenacity,
+                    speed,
+                    critical_chance,
+                    dodge_chance,
+                    level,
+                    currency_reward,
+                    monster_modifier,
+                    loot_table_id,
+                ))
+                monster_id = cursor.lastrowid
 
         await self.db.commit()
         return monster_id
@@ -163,10 +203,10 @@ class MonsterDB:
 
         # Fields: name, hp, dmg, armor, tenacity, speed, crit, dodge, level, currency_reward
         BASE_MONSTERS = [
-            ("Slime", 40, 4, 0, 4, 5, 0.02, 0.05, 1, 20),
-            ("Goblin", 60, 7, 2, 7, 6, 0.05, 0.07, 2, 40),
-            ("Wolf", 80, 9, 2, 12, 10, 0.06, 0.10, 3, 60),
-            ("Orc", 200, 15, 5, 20, 4, 0.08, 0.05, 5, 120),
+            ("Slime", 40, 4, 0, 8, 5, 0.02, 0.05, 1, 20),
+            ("Goblin", 60, 7, 2, 12, 6, 0.05, 0.07, 2, 40),
+            ("Wolf", 80, 9, 2, 16, 10, 0.06, 0.10, 3, 60),
+            ("Orc", 200, 15, 5, 25, 4, 0.08, 0.05, 5, 120),
         ]
 
 
@@ -183,7 +223,7 @@ class MonsterDB:
             },
 
             "mystic": {
-                "health": 1.8,
+                "health": 2.0,
                 "damage": 1.2,
                 "armor": 1.2,
                 "speed": 1.2,
@@ -194,34 +234,34 @@ class MonsterDB:
             },
 
             "brutal": {
-                "health": 1.8,
+                "health": 2.8,
                 "damage": 2.5,
                 "armor": 1.2,
                 "speed": 1.2,
-                "tenacity": 1.2,
+                "tenacity": 2.0,
                 "crit": 2.0,
                 "dodge": 1.0,
                 "reward": 2.5
             },
 
             "chaos": {
-                "health": 2.0,
+                "health": 3.0,
                 "damage": 1.5,
                 "armor": 1.5,
                 "speed": 2.5,
-                "tenacity": 1.5,
+                "tenacity": 3.0,
                 "crit": 1.5,
                 "dodge": 2.5,
                 "reward": 3.0
             },
 
             "giant": {
-                "health": 3.5,
-                "damage": 1.8,
+                "health": 4.0,
+                "damage": 2.0,
                 "armor": 2.5,
                 "speed": 0.6,
-                "tenacity": 1.5,
-                "crit": 1.2,
+                "tenacity": 3.5,
+                "crit": 1.5,
                 "dodge": 0.5,
                 "reward": 3.5
             }
@@ -264,7 +304,3 @@ class MonsterDB:
 
                 valid_ids.append(monster_id)
 
-    async def ensure_monsters(self):
-        monsters = await self.get_all_monsters()
-        if not monsters:
-            await self.generate_monsters()

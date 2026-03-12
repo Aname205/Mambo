@@ -14,7 +14,7 @@ class RPSButtons(discord.ui.View):
         self.choice = None
 
     async def on_timeout(self):
-        # Tự động xóa khỏi danh sách đang chơi nếu hết thời gian
+        # Automatically remove from active games list on timeout
         self.active_games.discard(self.ctx.author.id)
 
     async def process_game(self, interaction: discord.Interaction, player_choice):
@@ -22,7 +22,7 @@ class RPSButtons(discord.ui.View):
             return await interaction.response.send_message("This is not your game!", ephemeral=True)
 
         self.choice = player_choice
-        self.stop() # Dừng view để trả kết quả về hàm chính
+        self.stop() # Stop the view to return result to the main function
         await interaction.response.defer()
 
     @discord.ui.button(label="Rock", style=discord.ButtonStyle.gray, emoji="✊")
@@ -79,7 +79,7 @@ class RPS(commands.Cog):
             view = RPSButtons(ctx, bet, self.bot, self.active_games)
             msg = await ctx.send(embed=em, view=view)
 
-            # Chờ người dùng bấm nút
+            # Wait for user to press a button
             await view.wait()
 
             if view.choice is None:
@@ -100,7 +100,7 @@ class RPS(commands.Cog):
                 "✌️": "✌️ Scissors"
             }
 
-            # Logic xét thắng thua
+            # Determine win/lose logic
             if player_choice == bot_choice:
                 result = "tie"
             elif (
@@ -112,7 +112,7 @@ class RPS(commands.Cog):
             else:
                 result = "lose"
 
-            # Xử lý kết quả và tiền thưởng
+            # Process result and reward
             if result == "win":
                 await self.bot.db.update_wallet(ctx.author.id, bet)
                 text = f"🎊 You win **{bet:,} coins!**"

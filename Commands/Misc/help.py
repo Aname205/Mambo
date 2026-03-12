@@ -17,13 +17,19 @@ class Help(commands.Cog):
 
         em.add_field(
             name="🎮   **Currency game**",
-            value="blackjack, fish, trivia, triviacategories, highlow, rps, lottery, poker, wordle, market, duel",
+            value="blackjack, fish, trivia, triviacategories, highlow, rps, lottery, poker, wordle, shop",
+            inline=False
+        )
+
+        em.add_field(
+            name="⚔️   **Battle**",
+            value="hunt, duel, monsterinfo",
             inline=False
         )
 
         em.add_field(
             name="🏪   **Item management**",
-            value="iteminfo, sell, inventory, lock, unlock, status",
+            value="iteminfo, buy, sell, inventory, lock, unlock, status",
             inline=False
         )
 

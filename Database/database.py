@@ -225,12 +225,13 @@ class Database:
         return await self.monsters.get_random_monster()
 
     async def ensure_monsters(self):
-        monsters = await self.monsters.get_all_monsters()
-        if not monsters:
-            loot_tables = await self.loot_tables.generate_default_loot_tables(
-                self.loot_table_items
-            )
-            await self.monsters.generate_monsters(loot_tables)
+        """Always upsert loot tables and monsters to ensure data is up-to-date."""
+        # Generate/update loot tables first (returns mapping for monster generation)
+        loot_tables = await self.loot_tables.generate_default_loot_tables(
+            self.loot_table_items
+        )
+        # Generate/update monsters with loot table references
+        await self.monsters.generate_monsters(loot_tables)
 
     # Battle log shortcuts
     async def start_battle(

@@ -34,7 +34,7 @@ class BalanceDB:
         return data
 
     async def update_wallet(self, user_id, amount):
-        """Cộng/trừ tiền trong wallet. amount dương = cộng, âm = trừ"""
+        """Add/subtract money in wallet. Positive amount = add, negative = subtract."""
         await self.get_balance(user_id)
         async with self.db.cursor() as cursor:
             await cursor.execute(

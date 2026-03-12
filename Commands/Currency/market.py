@@ -187,8 +187,8 @@ class Market(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command()
-    async def market(self, ctx):
+    @commands.command(name="shop", aliases=["market"])
+    async def shop(self, ctx):
 
         try:
             market = await self.bot.db.get_market_equipments()
@@ -199,6 +199,68 @@ class Market(commands.Cog):
 
         except Exception as e:
             await ctx.send(f"Error: {e}")
+
+    @commands.command(name="buy")
+    async def buy_by_ids(self, ctx, *shop_ids):
+        """Buy one or more shop items by displayed shop IDs, e.g. mbuy 1 2 3."""
+        if not shop_ids:
+            return await ctx.send("Usage: `mbuy <shop_id> [shop_id ...]` (example: `mbuy 1 2 3`)")
+
+        market = await ctx.bot.db.get_market_equipments()
+        if not market:
+            return await ctx.send("Shop is empty right now.")
+
+        parsed_ids = []
+        for raw in shop_ids:
+            try:
+                idx = int(raw)
+            except ValueError:
+                return await ctx.send(f"Invalid shop ID: `{raw}`. IDs must be numbers.")
+
+            if idx < 1 or idx > len(market):
+                return await ctx.send(f"Shop ID `{idx}` is out of range. Valid range: 1 - {len(market)}.")
+
+            parsed_ids.append(idx)
+
+        selected_rows = [market[i - 1] for i in parsed_ids]
+        total_price = sum(row[10] for row in selected_rows)
+
+        wallet, _ = await ctx.bot.db.get_balance(ctx.author.id)
+        if wallet < total_price:
+            return await ctx.send(
+                f"You need **{total_price:,}** 🪙 but only have **{wallet:,}** 🪙."
+            )
+
+        await ctx.bot.db.update_wallet(ctx.author.id, -total_price)
+
+        bought_summary = {}
+        for row in selected_rows:
+            item_id, name, emoji, _, _, _, _, _, _, tier, price, _, _ = row
+            key = (item_id, tier)
+            if key not in bought_summary:
+                bought_summary[key] = {"name": name, "emoji": emoji, "tier": tier, "count": 0, "subtotal": 0}
+            bought_summary[key]["count"] += 1
+            bought_summary[key]["subtotal"] += price
+
+        for (item_id, tier), data in bought_summary.items():
+            await ctx.bot.db.add_to_inventory(ctx.author.id, item_id, tier, data["count"])
+
+        new_wallet, _ = await ctx.bot.db.get_balance(ctx.author.id)
+
+        em = discord.Embed(title="🛒 Purchase Successful", color=discord.Color.green())
+        em.set_author(name=ctx.author.name, icon_url=ctx.author.display_avatar.url)
+
+        lines = []
+        for data in bought_summary.values():
+            lines.append(
+                f"{data['emoji']} **{data['tier']} {data['name']}** x{data['count']} - {data['subtotal']:,} 🪙"
+            )
+
+        em.add_field(name="Items", value="\n".join(lines), inline=False)
+        em.add_field(name="Total", value=f"**{total_price:,}** 🪙", inline=True)
+        em.add_field(name="Wallet Left", value=f"**{new_wallet:,}** 🪙", inline=True)
+
+        await ctx.send(embed=em)
 
 async def setup(bot):
     await bot.add_cog(Market(bot))
