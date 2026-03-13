@@ -55,13 +55,13 @@ class LootTablesDB:
 
         # Define loot table data: monster_name -> [(item_name, drop_chance, min, max), ...]
         LOOT_DATA = {
-            "slime": [
+            "Slime": [
                 ("Rusty Copper Sword", 0.2, 1, 1),
                 ("Rusty Copper Armor", 0.2, 1, 1),
                 ("Rusty Copper Axe", 0.2, 1, 1),
                 ("Rusty Copper Knife", 0.2, 1, 1),
             ],
-            "goblin": [
+            "Goblin": [
                 ("Rusty Copper Sword", 0.2, 1, 1),
                 ("Rusty Copper Armor", 0.2, 1, 1),
                 ("Rusty Copper Axe", 0.2, 1, 1),
@@ -69,14 +69,47 @@ class LootTablesDB:
                 ("Copper Sword", 0.1, 1, 1),
                 ("Copper Armor", 0.1, 1, 1),
             ],
-            "wolf": [
+            "Wolf": [
                 ("Copper Sword", 0.2, 1, 1),
                 ("Copper Armor", 0.2, 1, 1),
             ],
-            "orc": [
-                ("Copper Sword", 0.4, 1, 1),
-                ("Copper Armor", 0.4, 1, 1),
-                ("Orc Mace", 1.0, 1, 1),
+            "Orc": [
+                ("Copper Sword", 0.9, 1, 1),
+                ("Copper Armor", 0.9, 1, 1),
+                ("Orc Mace", 0.7, 1, 1),
+                ("Orc Heart", 0.7, 1, 1),
+            ],
+
+            "Skeleton": [
+                ("Copper Sword", 0.9, 1, 1),
+                ("Copper Armor", 0.9, 1, 1),
+                ("Cursed Bone", 0.7, 1, 1),
+                ("Cursed Skull", 0.7, 1, 1),
+            ],
+
+            "Bandit": [
+                ("Steel Sword", 0.6, 1, 1),
+                ("Steel Armor", 0.6, 1, 1),
+                ("Bandit Knife", 0.3, 1, 1),
+                ("Ninja Suit", 0.3, 1, 1),
+            ],
+
+            "Venus Fly Trap": [
+                ("Steel Sword", 0.6, 1, 1),
+                ("Steel Armor", 0.6, 1, 1),
+                ("Thorn Vine", 0.3, 1, 1),
+                ("Life Bloom", 0.3, 1, 1),
+            ],
+
+            "Cursed Knight": [
+                ("Knight Claymore", 0.3, 1, 1),
+                ("Knight Insignia", 0.3, 1, 1),
+                ("Knight Armor", 0.3, 1, 1),
+            ],
+
+            "Drowned": [
+                ("Broken Trident", 0.3, 1, 1),
+                ("Sea Prism", 0.3, 1, 1),
             ],
         }
 
@@ -86,7 +119,7 @@ class LootTablesDB:
         for monster_name, items in LOOT_DATA.items():
             # Get or create loot table
             loot_table_id = await self._get_or_create_loot_table(monster_name)
-            tables[monster_name.capitalize()] = loot_table_id
+            tables[monster_name] = loot_table_id
 
             # Add items to loot table
             for item_name, drop_chance, min_amt, max_amt in items:

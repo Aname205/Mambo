@@ -149,7 +149,7 @@ class Hunt(commands.Cog):
                     battle_log.append("💫 Monster is **Stunned** and skips its turn!")
                 else:
                     if random.random() < p_dodge:
-                        battle_log.append("💨 You **dodged** the monster attack")
+                        battle_log.append("👟 You **dodged** the monster attack")
                     else:
 
                         base_damage = calculate_scaled_damage(m_damage, p_armor)

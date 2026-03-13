@@ -1,3 +1,5 @@
+import random
+
 class MonsterDB:
     def __init__(self, db):
         self.db = db
@@ -185,7 +187,6 @@ class MonsterDB:
         if not all_monsters:
             return None
 
-        import random
         weights_map = {
             "normal": 88,
             "mystic": 3,
@@ -193,20 +194,52 @@ class MonsterDB:
             "chaos": 3,
             "giant": 3
         }
-        
+
         weights = [weights_map.get(m[1], 10) for m in all_monsters]
         selected_id = random.choices(all_monsters, weights=weights, k=1)[0][0]
 
         return await self.get_monster(selected_id)
 
+    async def get_random_monster_by_level(self, monster_level):
+        async with self.db.cursor() as cursor:
+            await cursor.execute("""
+                SELECT monster_id, monster_modifier
+                FROM monsters
+                WHERE level <= ?
+                """, (monster_level,))
+            all_monsters_by_level = await cursor.fetchall()
+
+        if not all_monsters_by_level:
+            return None
+
+        weights_map = {
+            "normal": 77,
+            "mystic": 8,
+            "brutal": 6,
+            "chaos": 5,
+            "giant": 4
+        }
+
+        weights = [weights_map.get(m[1], 10) for m in all_monsters_by_level]
+        selected_id = random.choices(all_monsters_by_level, weights=weights, k=1)[0][0]
+
+        return await self.get_monster(selected_id)
+
     async def generate_monsters(self, loot_tables):
 
-        # Fields: name, hp, dmg, armor, tenacity, speed, crit, dodge, level, currency_reward
+
         BASE_MONSTERS = [
-            ("Slime", 40, 4, 0, 8, 5, 0.02, 0.05, 1, 20),
-            ("Goblin", 60, 7, 2, 12, 6, 0.05, 0.07, 2, 40),
-            ("Wolf", 80, 9, 2, 16, 10, 0.06, 0.10, 3, 60),
-            ("Orc", 200, 15, 5, 25, 4, 0.08, 0.05, 5, 120),
+            # Fields: name,     hp,     dmg,    armor, tenacity, speed, crit, dodge, level, currency_reward
+            ("Slime",           45,     4,      0,     8,        5,     0.02, 0.05,  1,     30),
+            ("Goblin",          75,     7,      2,     12,       6,     0.05, 0.07,  2,     50),
+            ("Wolf",            100,    9,      2,     16,       10,    0.06, 0.10,  3,     80),
+            ("Orc",             220,    15,     5,     25,       6,     0.08, 0.05,  4,     150),
+            ("Skeleton",        150,    12,     4,     15,       9,     0.05, 0.07,  4,     150),
+            ("Bandit",          200,    15,     4,     18,       12,    0.08, 0.08,  5,     300),
+            ("Venus Fly Trap",  300,    20,     3,     25,       8,     0.08, 0.01,  5,     300),
+            ("Cursed Knight",   550,    22,     8,     35,       8,     0.06, 0.05,  6,     600),
+            ("Drowned",         380,    18,     6,     25,       12,    0.09, 0.06,  6,     600),
+            ("Arthropleura",    2000,   48,     35,    75,      15,    0.10, 0.08,  10,    5000)
         ]
 
 
@@ -223,7 +256,7 @@ class MonsterDB:
             },
 
             "mystic": {
-                "health": 2.0,
+                "health": 1.6,
                 "damage": 1.2,
                 "armor": 1.2,
                 "speed": 1.2,
@@ -234,29 +267,29 @@ class MonsterDB:
             },
 
             "brutal": {
-                "health": 2.8,
-                "damage": 2.5,
+                "health": 2.2,
+                "damage": 2.2,
                 "armor": 1.2,
                 "speed": 1.2,
-                "tenacity": 2.0,
+                "tenacity": 1.5,
                 "crit": 2.0,
                 "dodge": 1.0,
                 "reward": 2.5
             },
 
             "chaos": {
-                "health": 3.0,
+                "health": 2.0,
                 "damage": 1.5,
                 "armor": 1.5,
-                "speed": 2.5,
-                "tenacity": 3.0,
+                "speed": 1.8,
+                "tenacity": 1.0,
                 "crit": 1.5,
-                "dodge": 2.5,
+                "dodge": 2.0,
                 "reward": 3.0
             },
 
             "giant": {
-                "health": 4.0,
+                "health": 3.5,
                 "damage": 2.0,
                 "armor": 2.5,
                 "speed": 0.6,

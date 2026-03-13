@@ -134,15 +134,29 @@ class EquipmentsDB:
                 ("Crude Blood Gem", "🔴", "accessory", 10, 0, 0, 0, 0, 1000, 0, 0),
             ]
 
-            # Fields: name, emoji, equipment_type('weapon', 'armor', 'accessory'), hp, dmg, armor, speed, break, price, crit, dodge
             base_equipments = [
-                ("Rusty Copper Sword", "🗡️", "weapon", 0, 9, 0, 2, 3, 30, 0.02, 0.01), #10
-                ("Rusty Copper Armor", "🛡", "armor", 30, 0, 4, 0, 0, 30, 0, 0), #11
-                ("Rusty Copper Axe" , "🪓", "weapon", 0, 12, 0, -1, 5, 30, 0.02, 0), #12
-                ("Rusty Copper Knife" , "🔪", "weapon", 0, 6, 0, 4, 1, 30, 0.04, 0.01), #13
-                ("Copper Sword", "🗡️", "weapon", 0, 12, 0, 2, 4, 50, 0.03, 0.01), #14
-                ("Copper Armor", "🛡", "armor", 35, 0, 6, 0, 0, 50, 0, 0), #15
-                ("Orc Mace", "🪓", "weapon", 0, 26, 0, -2, 7, 0, 0.03, 0),
+                # Fields: name, emoji, equipment_type,      hp,   dmg,  armor, speed, break, price, crit, dodge
+                ("Rusty Copper Sword", "🗡️", "weapon",      0,    7,    0,     2,     3,     30,    0.02, 0.01),
+                ("Rusty Copper Armor", "🛡", "armor",       30,    0,    4,     0,     0,     30,    0,    0),
+                ("Rusty Copper Axe" , "🪓", "weapon",       0,    11,   0,     -1,    5,     30,    0.02, 0),
+                ("Rusty Copper Knife" , "🔪", "weapon",     0,    6,    0,     4,     1,     30,    0.04, 0.02),
+                ("Copper Sword", "🗡️", "weapon",            0,    12,   0,     2,     3,     50,    0.03, 0.01),
+                ("Copper Armor", "🛡", "armor",              50,   0,    7,     0,    0,      50,    0,    0),
+                ("Orc Mace", "🪓", "weapon",                0,    26,   0,     -2,    7,     100,   0.03, 0),
+                ("Orc Heart", "🫀", "accessory",            30,   0,    0,     0,     0,     80,    0,    0),
+                ("Cursed Bone", "🦴", "weapon",             0,    18,   0,     2,     4,     80,    0.04, 0.01),
+                ("Cursed Skull", "💀", "accessory",         0,    6,    0,     0,     1,     80,    0,    0),
+                ("Steel Sword", "🗡️", "weapon",             0,    24,   0,     3,     5,     250,   0.05, 0.01),
+                ("Steel Armor", "🛡️", "armor",              140,  0,    9,     0,     0,     250,   0,    0),
+                ("Bandit Knife", "🔪", "weapon",            0,    17,   0,     7,     2,     300,   0.07, 0.03),
+                ("Ninja Suit", "🥷", "armor",               80,   0,    6,     5,     0,     300,   0,    0.02),
+                ("Thorn Vine", "🌿", "weapon",              -20,  32,   0,     5,     5,     300,   0.06, 0.02),
+                ("Life Bloom", "🌺", "accessory",           50,   0,    1,     0,     0,     300,   0,    0),
+                ("Knight Claymore", "🗡️", "weapon",         0,    50,   2,     -3,    10,    600,   0.10, -0.02),
+                ("Knight Insignia", "⚜️", "accessory",      30,   1,    4,     0,     0,     600,   0,    0),
+                ("Knight Armor", "🛡️", "armor",             180,  0,    13,    -4,    0,     600,   0,    -0.02),
+                ("Broken Trident", "🔱", "weapon",          0,    35,   0,     4,     6,     600,   0.07, 0.01),
+                ("Sea Prism", "💎", "accessory",            0,    2,    0,     5,     2,     600,   0,    0)
             ]
 
             TIERS = {

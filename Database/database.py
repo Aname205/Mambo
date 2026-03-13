@@ -224,6 +224,9 @@ class Database:
     async def get_random_monster(self):
         return await self.monsters.get_random_monster()
 
+    async def get_random_monster_by_level(self, monster_level):
+        return await self.monsters.get_random_monster_by_level(monster_level)
+
     async def ensure_monsters(self):
         """Always upsert loot tables and monsters to ensure data is up-to-date."""
         # Generate/update loot tables first (returns mapping for monster generation)

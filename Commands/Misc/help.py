@@ -23,7 +23,7 @@ class Help(commands.Cog):
 
         em.add_field(
             name="⚔️   **Battle**",
-            value="hunt, duel, monsterinfo",
+            value="hunt, duel, monsterinfo, dungeon",
             inline=False
         )
 
