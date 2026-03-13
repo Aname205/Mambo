@@ -25,6 +25,8 @@ class BattleLogsDB:
                     monster_dodge_chance REAL,
                     monster_level INTEGER,
                     monster_currency_reward INTEGER,
+                    monster_exp_min INTEGER DEFAULT 0,
+                    monster_exp_max INTEGER DEFAULT 0,
                     monster_modifier TEXT DEFAULT 'normal' CHECK (monster_modifier IN ('normal','mystic','brutal','chaos','giant')),
                     monster_loot_table_id INTEGER,
                     battle_status TEXT DEFAULT 'active' CHECK(battle_status IN ('active', 'won', 'lost', 'fled')),
@@ -53,6 +55,8 @@ class BattleLogsDB:
             monster_dodge_chance,
             monster_level,
             monster_currency_reward,
+            monster_exp_min,
+            monster_exp_max,
             monster_modifier,
             monster_loot_table_id
     ):
@@ -77,10 +81,12 @@ class BattleLogsDB:
                     monster_dodge_chance,
                     monster_level,
                     monster_currency_reward,
+                    monster_exp_min,
+                    monster_exp_max,
                     monster_modifier,
                     monster_loot_table_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,(
                     user_id,
                     monster_id,
@@ -100,6 +106,8 @@ class BattleLogsDB:
                     monster_dodge_chance,
                     monster_level,
                     monster_currency_reward,
+                    monster_exp_min,
+                    monster_exp_max,
                     monster_modifier,
                     monster_loot_table_id
                 ))

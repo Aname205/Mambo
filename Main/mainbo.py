@@ -74,6 +74,7 @@ async def main():
         await bot.load_extension("Commands.Currency.duel")
         await bot.load_extension("Commands.Currency.hunt")
         await bot.load_extension("Commands.Currency.dungeon")
+        await bot.load_extension("Commands.Currency.allocate")
         await start_bot_with_retry()
 
 asyncio.run(main())

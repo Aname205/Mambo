@@ -107,6 +107,7 @@ class StatusView(discord.ui.View):
         dodge = self.player[8] or 0
         level = self.player[13] if len(self.player) > 13 else 1
         exp = self.player[14] if len(self.player) > 14 else 0
+        ability_points = self.player[15] if len(self.player) > 15 else 0
         next_exp = self.bot.db.players.exp_required(level + 1) if level < 50 else "MAX"
 
         em = discord.Embed(
@@ -127,7 +128,7 @@ class StatusView(discord.ui.View):
 
         em.add_field(
             name=f"Level: {level}",
-            value=f"Experience: {exp_text}\n{progress_bar}",
+            value=f"Experience: {exp_text}\n{progress_bar}\n💎 Ability Points (AP): **{ability_points}**\n_Use `mallocate` to spend AP_",
             inline=False
         )
 
@@ -139,8 +140,8 @@ class StatusView(discord.ui.View):
                 f"🛡 Armor: {armor}\n"
                 f"💨 Speed: {speed}\n"
                 f"⚡ Break Force: {break_force}\n"
-                f"🎯 Crit: {crit * 100:.0f}%\n"
-                f"👟 Dodge: {dodge * 100:.0f}%"
+                f"🎯 Crit: {crit * 100:.1f}%\n"
+                f"👟 Dodge: {dodge * 100:.1f}%"
             ),
             inline=False
         )
@@ -272,7 +273,7 @@ class Status(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command()
+    @commands.command(aliases=["stat"])
     async def status(self, ctx):
         try:
             player = await self.bot.db.get_player(ctx.author.id)

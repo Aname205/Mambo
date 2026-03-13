@@ -19,6 +19,8 @@ class MonsterDB:
                     dodge_chance INTEGER DEFAULT 0,
                     level INTEGER DEFAULT 1,
                     currency_reward INTEGER DEFAULT 0,
+                    exp_min INTEGER DEFAULT 0,
+                    exp_max INTEGER DEFAULT 0,
                     monster_modifier TEXT DEFAULT 'normal',
                     loot_table_id INTEGER,
                     FOREIGN KEY (loot_table_id) REFERENCES loot_tables(id)
@@ -38,6 +40,8 @@ class MonsterDB:
         dodge_chance=0,
         level=1,
         currency_reward=0,
+        exp_min=0,
+        exp_max=0,
         monster_modifier="normal",
         loot_table_id=None
     ):
@@ -64,6 +68,8 @@ class MonsterDB:
                         dodge_chance = ?,
                         level = ?,
                         currency_reward = ?,
+                        exp_min = ?,
+                        exp_max = ?,
                         monster_modifier = ?,
                         loot_table_id = ?
                     WHERE monster_id = ?
@@ -78,6 +84,8 @@ class MonsterDB:
                     dodge_chance,
                     level,
                     currency_reward,
+                    exp_min,
+                    exp_max,
                     monster_modifier,
                     loot_table_id,
                     monster_id,
@@ -95,10 +103,12 @@ class MonsterDB:
                         dodge_chance,
                         level,
                         currency_reward,
+                        exp_min,
+                        exp_max,
                         monster_modifier,
                         loot_table_id
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     name,
                     health,
@@ -110,6 +120,8 @@ class MonsterDB:
                     dodge_chance,
                     level,
                     currency_reward,
+                    exp_min,
+                    exp_max,
                     monster_modifier,
                     loot_table_id,
                 ))
@@ -229,17 +241,17 @@ class MonsterDB:
 
 
         BASE_MONSTERS = [
-            # Fields: name,     hp,     dmg,    armor, tenacity, speed, crit, dodge, level, currency_reward
-            ("Slime",           45,     4,      0,     8,        5,     0.02, 0.05,  1,     30),
-            ("Goblin",          75,     7,      2,     12,       6,     0.05, 0.07,  2,     50),
-            ("Wolf",            100,    9,      2,     16,       10,    0.06, 0.10,  3,     80),
-            ("Orc",             220,    15,     5,     25,       6,     0.08, 0.05,  4,     150),
-            ("Skeleton",        150,    12,     4,     15,       9,     0.05, 0.07,  4,     150),
-            ("Bandit",          200,    15,     4,     18,       12,    0.08, 0.08,  5,     300),
-            ("Venus Fly Trap",  300,    20,     3,     25,       8,     0.08, 0.01,  5,     300),
-            ("Cursed Knight",   550,    22,     8,     35,       8,     0.06, 0.05,  6,     600),
-            ("Drowned",         380,    18,     6,     25,       12,    0.09, 0.06,  6,     600),
-            ("Arthropleura",    2000,   48,     35,    75,      15,    0.10, 0.08,  10,    5000)
+            # Fields: name,     hp,     dmg,    armor, tenacity, speed, crit, dodge, level, currency_reward, exp_min, exp_max
+            ("Slime",           45,     4,      0,     8,        5,     0.02, 0.05,  1,     30,              15,      25),
+            ("Goblin",          75,     7,      2,     12,       6,     0.05, 0.07,  2,     50,              30,      50),
+            ("Wolf",            100,    9,      2,     16,       10,    0.06, 0.10,  3,     80,              45,      75),
+            ("Orc",             220,    15,     5,     25,       6,     0.08, 0.05,  4,     150,             85,      140),
+            ("Skeleton",        150,    12,     4,     15,       9,     0.05, 0.07,  4,     150,             70,      115),
+            ("Bandit",          200,    15,     4,     18,       12,    0.08, 0.08,  5,     300,             95,      160),
+            ("Venus Fly Trap",  300,    20,     3,     25,       8,     0.08, 0.01,  5,     300,             130,     215),
+            ("Cursed Knight",   550,    22,     8,     35,       8,     0.06, 0.05,  6,     600,             210,     350),
+            ("Drowned",         380,    18,     6,     25,       12,    0.09, 0.06,  6,     600,             165,     275),
+            ("Arthropleura",    2000,   48,     35,    75,      15,    0.10, 0.08,  10,    5000,            900,     1500)
         ]
 
 
@@ -252,7 +264,8 @@ class MonsterDB:
                 "tenacity": 1,
                 "crit": 1,
                 "dodge": 1,
-                "reward": 1
+                "reward": 1,
+                "exp": 1.0
             },
 
             "mystic": {
@@ -263,7 +276,8 @@ class MonsterDB:
                 "tenacity": 2.5,
                 "crit": 1.8,
                 "dodge": 1.8,
-                "reward": 2.5
+                "reward": 2.5,
+                "exp": 2.0
             },
 
             "brutal": {
@@ -274,7 +288,8 @@ class MonsterDB:
                 "tenacity": 1.5,
                 "crit": 2.0,
                 "dodge": 1.0,
-                "reward": 2.5
+                "reward": 2.5,
+                "exp": 2.5
             },
 
             "chaos": {
@@ -285,7 +300,8 @@ class MonsterDB:
                 "tenacity": 1.0,
                 "crit": 1.5,
                 "dodge": 2.0,
-                "reward": 3.0
+                "reward": 3.0,
+                "exp": 2.8
             },
 
             "giant": {
@@ -296,13 +312,14 @@ class MonsterDB:
                 "tenacity": 3.5,
                 "crit": 1.5,
                 "dodge": 0.5,
-                "reward": 3.5
+                "reward": 3.5,
+                "exp": 3.2
             }
         }
 
         valid_ids = []
 
-        for name, health, dmg, armor, tenacity, speed, crit, dodge, level, reward in BASE_MONSTERS:
+        for name, health, dmg, armor, tenacity, speed, crit, dodge, level, reward, exp_min, exp_max in BASE_MONSTERS:
 
             for modifier, mult in MONSTER_MODIFIERS.items():
                 new_health = int(health * mult["health"])
@@ -315,6 +332,8 @@ class MonsterDB:
                 new_dodge = round(dodge * mult["dodge"], 4)
 
                 new_reward = int(reward * mult["reward"])
+                new_exp_min = int(exp_min * mult["exp"])
+                new_exp_max = int(exp_max * mult["exp"])
 
                 monster_name = f"{modifier.capitalize()} {name}"
 
@@ -331,6 +350,8 @@ class MonsterDB:
                     new_dodge,
                     level,
                     new_reward,
+                    new_exp_min,
+                    new_exp_max,
                     modifier,
                     loot_table_id
                 )

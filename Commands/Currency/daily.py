@@ -8,8 +8,8 @@ class Daily(commands.Cog):
     @commands.command()
     @commands.cooldown(1, 82800, commands.BucketType.user)
     async def daily(self, ctx):
-        await self.bot.db.update_wallet(ctx.author.id, 1000)
-        await ctx.send("You've received your daily 1000 🪙")
+        await self.bot.db.update_wallet(ctx.author.id, 100000)
+        await ctx.send("You've received your daily 100,000 🪙")
 
     @daily.error
     async def daily_error(self, ctx, error):

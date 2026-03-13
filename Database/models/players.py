@@ -9,11 +9,11 @@ class PlayersDB:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER,
                     
-                    health INTEGER default 10,
-                    damage INTEGER default 1,
+                    health INTEGER default 20,
+                    damage INTEGER default 5,
                     armor INTEGER default 0,
                     speed INTEGER default 10,
-                    break_force INTEGER default 0,
+                    break_force INTEGER default 1,
                     critical_chance REAL default 0.05,
                     dodge_chance REAL default 0.05,
                     
@@ -23,6 +23,7 @@ class PlayersDB:
                     equipped_accessory_2_id INTEGER,
                     level INTEGER default 1,
                     exp INTEGER default 0,
+                    ability_points INTEGER default 0,
                     FOREIGN KEY (equipped_weapon_id) REFERENCES equipments(id),
                     FOREIGN KEY (equipped_armor_id) REFERENCES equipments(id),
                     FOREIGN KEY (equipped_accessory_1_id) REFERENCES equipments(id),
@@ -43,6 +44,8 @@ class PlayersDB:
                 await cursor.execute("ALTER TABLE players ADD COLUMN level INTEGER DEFAULT 1")
             if "exp" not in cols:
                 await cursor.execute("ALTER TABLE players ADD COLUMN exp INTEGER DEFAULT 0")
+            if "ability_points" not in cols:
+                await cursor.execute("ALTER TABLE players ADD COLUMN ability_points INTEGER DEFAULT 0")
         await self.db.commit()
 
     async def create_player(self, user_id):
@@ -71,12 +74,92 @@ class PlayersDB:
             current_level, current_exp = row
             new_exp = current_exp + amount
             new_level = current_level
+            leveled_up = False
+            
             while new_level < 50 and new_exp >= self.exp_required(new_level + 1):
                 new_exp -= self.exp_required(new_level + 1)
                 new_level += 1
+                leveled_up = True
+                
+                # Apply stat increases per level
+                # Health: +10 per level
+                # Damage: +2 per level
+                # Armor: +1 every 2 levels
+                # Speed: +1 at levels 5, 10, 15, 20, etc.
+                # Ability Points: +3 per level
+                
+                await cursor.execute("""
+                    UPDATE players 
+                    SET health = health + 10,
+                        damage = damage + 2,
+                        ability_points = ability_points + 3
+                    WHERE user_id = ?
+                """, (user_id,))
+                
+                # Armor increase every 2 levels
+                if new_level % 2 == 0:
+                    await cursor.execute("""
+                        UPDATE players 
+                        SET armor = armor + 1
+                        WHERE user_id = ?
+                    """, (user_id,))
+                
+                # Speed increase every 5 levels
+                if new_level % 5 == 0:
+                    await cursor.execute("""
+                        UPDATE players 
+                        SET speed = speed + 1
+                        WHERE user_id = ?
+                    """, (user_id,))
+            
             await cursor.execute("UPDATE players SET level = ?, exp = ? WHERE user_id = ?", (new_level, new_exp, user_id))
         await self.db.commit()
-        return new_level > current_level
+        return leveled_up
+
+    async def spend_ability_point(self, user_id, stat):
+        """
+        Spend 1 ability point to increase a stat.
+        stat options: health, damage, armor, speed, break_force, critical_chance, dodge_chance
+        Returns: (success: bool, message: str, remaining_points: int)
+        """
+        stat_increases = {
+            "health": 5,
+            "damage": 1,
+            "armor": 0.5,
+            "speed": 0.3,
+            "break_force": 0.2,
+            "critical_chance": 0.003,  # 0.3% = 0.003
+            "dodge_chance": 0.001  # 0.1% = 0.001
+        }
+        
+        if stat not in stat_increases:
+            return False, "Invalid stat", 0
+        
+        async with self.db.cursor() as cursor:
+            await cursor.execute("SELECT ability_points FROM players WHERE user_id = ?", (user_id,))
+            row = await cursor.fetchone()
+            
+            if not row:
+                return False, "Player not found", 0
+            
+            ability_points = row[0]
+            
+            if ability_points < 1:
+                return False, "Not enough ability points", 0
+            
+            increase = stat_increases[stat]
+            
+            # Update the stat and decrease ability points
+            await cursor.execute(f"""
+                UPDATE players 
+                SET {stat} = {stat} + ?,
+                    ability_points = ability_points - 1
+                WHERE user_id = ?
+            """, (increase, user_id))
+            
+            await self.db.commit()
+            
+            return True, f"Increased {stat} by {increase}", ability_points - 1
 
     async def get_player(self, user_id):
         async with self.db.cursor() as cursor:
@@ -117,12 +200,12 @@ class PlayersDB:
 
     async def recalculate_stats(self, user_id):
         async with self.db.cursor() as cursor:
-            # Get base stats (assuming base stats are 10 health, 1 damage, 0 armor, 10 speed, 0 break_force, 0.05 crit, 0.05 dodge)
-            base_health = 10
-            base_damage = 1
+            # Get base stats (assuming base stats are 20 health, 5 damage, 0 armor, 10 speed, 1 break_force, 0.05 crit, 0.05 dodge)
+            base_health = 20
+            base_damage = 5
             base_armor = 0
             base_speed = 10
-            base_break_force = 0
+            base_break_force = 1
             base_crit = 0.05
             base_dodge = 0.05
             
