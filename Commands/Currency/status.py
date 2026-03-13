@@ -105,11 +105,31 @@ class StatusView(discord.ui.View):
         break_force = self.player[6]
         crit = self.player[7] or 0
         dodge = self.player[8] or 0
+        level = self.player[13] if len(self.player) > 13 else 1
+        exp = self.player[14] if len(self.player) > 14 else 0
+        next_exp = self.bot.db.players.exp_required(level + 1) if level < 50 else "MAX"
 
         em = discord.Embed(
             color=discord.Color.green()
         )
         em.set_author(name=f"{self.user.name}'s Equipment", icon_url=self.user.display_avatar.url)
+
+        # Build level/exp header section
+        if next_exp == "MAX":
+            exp_text = "MAX"
+            progress_bar = "[██████████] 100%"
+        else:
+            percent = min(1.0, exp / next_exp) if next_exp else 0
+            filled = int(percent * 10)
+            empty = 10 - filled
+            progress_bar = f"[{'█' * filled}{'░' * empty}] {percent * 100:.0f}%"
+            exp_text = f"{exp}/{next_exp} ({percent * 100:.0f}%)"
+
+        em.add_field(
+            name=f"Level: {level}",
+            value=f"Experience: {exp_text}\n{progress_bar}",
+            inline=False
+        )
 
         em.add_field(
             name="Stats",

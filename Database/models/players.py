@@ -21,6 +21,8 @@ class PlayersDB:
                     equipped_armor_id INTEGER,
                     equipped_accessory_1_id INTEGER,
                     equipped_accessory_2_id INTEGER,
+                    level INTEGER default 1,
+                    exp INTEGER default 0,
                     FOREIGN KEY (equipped_weapon_id) REFERENCES equipments(id),
                     FOREIGN KEY (equipped_armor_id) REFERENCES equipments(id),
                     FOREIGN KEY (equipped_accessory_1_id) REFERENCES equipments(id),
@@ -29,12 +31,52 @@ class PlayersDB:
             """)
             await self.db.commit()
 
+        await self._ensure_columns()
+
+    async def _ensure_columns(self):
+        """Ensure new columns exist for already-created DBs."""
+        async with self.db.cursor() as cursor:
+            await cursor.execute("PRAGMA table_info(players)")
+            cols = [row[1] for row in await cursor.fetchall()]
+
+            if "level" not in cols:
+                await cursor.execute("ALTER TABLE players ADD COLUMN level INTEGER DEFAULT 1")
+            if "exp" not in cols:
+                await cursor.execute("ALTER TABLE players ADD COLUMN exp INTEGER DEFAULT 0")
+        await self.db.commit()
+
     async def create_player(self, user_id):
         async with self.db.cursor() as cursor:
             await cursor.execute("""
                 INSERT OR IGNORE INTO players(user_id) 
                 VALUES(?)""", (user_id,))
         await self.db.commit()
+
+    @staticmethod
+    def exp_required(level):
+        thresholds = [
+            0, 120, 343, 669, 1097, 1629, 2263, 3000, 3840, 4783, 5829, 6977, 8229, 9583, 11040, 12600, 14263, 16029, 17897, 19869, 21943, 24120, 26400, 28783, 31269, 33857, 36549, 39343, 42240, 45240,
+            50240, 55740, 61740, 68240, 75240, 82740, 90740, 99240, 108240, 117740, 127740, 138240, 149240, 160740, 172740, 185240, 198240, 211740, 225740, 240240
+        ]
+        if 1 <= level <= 50:
+            return thresholds[level-1]
+        return thresholds[-1]
+
+    async def add_exp(self, user_id, amount):
+        async with self.db.cursor() as cursor:
+            await cursor.execute("SELECT level, exp FROM players WHERE user_id = ?", (user_id,))
+            row = await cursor.fetchone()
+            if not row:
+                return False
+            current_level, current_exp = row
+            new_exp = current_exp + amount
+            new_level = current_level
+            while new_level < 50 and new_exp >= self.exp_required(new_level + 1):
+                new_exp -= self.exp_required(new_level + 1)
+                new_level += 1
+            await cursor.execute("UPDATE players SET level = ?, exp = ? WHERE user_id = ?", (new_level, new_exp, user_id))
+        await self.db.commit()
+        return new_level > current_level
 
     async def get_player(self, user_id):
         async with self.db.cursor() as cursor:

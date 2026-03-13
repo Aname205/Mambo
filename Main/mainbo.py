@@ -5,7 +5,9 @@ from dotenv import load_dotenv
 import asyncio
 import os
 import sys
-from Main.keep_alive import keep_alive
+from keep_alive import keep_alive
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
@@ -46,6 +48,7 @@ async def start_bot_with_retry(max_retries=8, base_delay=5):
 
 
 async def main():
+    print(f"Starting Mambo bot (PID {os.getpid()})")
     async with bot:
         keep_alive()
         await bot.load_extension("Events.on_ready")
