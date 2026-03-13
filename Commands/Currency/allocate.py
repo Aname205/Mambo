@@ -23,6 +23,15 @@ class AllocateView(discord.ui.View):
         break_force = player[6]
         crit = player[7]
         dodge = player[8]
+        
+        # Get AP spent from tracker columns (indices 16-22)
+        ap_health = player[16] if len(player) > 16 else 0
+        ap_damage = player[17] if len(player) > 17 else 0
+        ap_armor = player[18] if len(player) > 18 else 0
+        ap_speed = player[19] if len(player) > 19 else 0
+        ap_break = player[20] if len(player) > 20 else 0
+        ap_crit = player[21] if len(player) > 21 else 0
+        ap_dodge = player[22] if len(player) > 22 else 0
 
         em = discord.Embed(
             title="💎 Ability Points Allocation",
@@ -33,16 +42,18 @@ class AllocateView(discord.ui.View):
         em.add_field(
             name="Current Stats",
             value=(
-                f"❤️ Health: **{health}** (+5 per AP)\n"
-                f"⚔️ Damage: **{damage}** (+1 per AP)\n"
-                f"🛡️ Armor: **{armor}** (+0.5 per AP)\n"
-                f"💨 Speed: **{speed}** (+0.3 per AP)\n"
-                f"⚡ Break Force: **{break_force}** (+0.2 per AP)\n"
-                f"🎯 Crit: **{crit * 100:.1f}%** (+0.3% per AP)\n"
-                f"👟 Dodge: **{dodge * 100:.1f}%** (+0.1% per AP)"
+                f"❤️ Health: **{health}** (+5 per AP) *[+{ap_health}]*\n"
+                f"⚔️ Damage: **{damage}** (+1 per AP) *[+{ap_damage}]*\n"
+                f"🛡️ Armor: **{armor}** (+0.5 per AP) *[+{ap_armor}]*\n"
+                f"💨 Speed: **{speed}** (+0.2 per AP) *[+{ap_speed}]*\n"
+                f"⚡ Break Force: **{break_force}** (+0.2 per AP) *[+{ap_break}]*\n"
+                f"🎯 Crit: **{crit * 100:.1f}%** (+0.3% per AP) *[+{ap_crit}]*\n"
+                f"👟 Dodge: **{dodge * 100:.1f}%** (+0.1% per AP) *[+{ap_dodge}]*"
             ),
             inline=False
         )
+
+        em.set_footer(text="Reset costs 5000 🪙")
 
         await interaction.response.edit_message(embed=em, view=self)
 
@@ -92,6 +103,35 @@ class AllocateView(discord.ui.View):
     async def dodge_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.spend_point(interaction, "dodge_chance", "Dodge", "👟")
 
+    @discord.ui.button(label="Reset AP (5000 🪙)", emoji="🔄", style=discord.ButtonStyle.danger, row=3)
+    async def reset_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Check if player has enough money
+        in_hand, in_bank = await self.bot.db.get_balance(self.user.id)
+        
+        if in_hand < 5000:
+            await interaction.response.send_message(
+                f"❌ You need 5000 🪙 to reset AP! You have {in_hand} 🪙",
+                ephemeral=True
+            )
+            return
+        
+        # Deduct money
+        await self.bot.db.update_wallet(self.user.id, -5000)
+        
+        # Reset AP
+        success, message, ap_refunded = await self.bot.db.players.reset_ability_points(self.user.id)
+        
+        if success:
+            await interaction.response.send_message(
+                f"✅ {message}\n💰 Paid 5000 🪙",
+                ephemeral=True
+            )
+            await self.update_embed(interaction)
+        else:
+            # Refund money if reset failed
+            await self.bot.db.update_wallet(self.user.id, 5000)
+            await interaction.response.send_message(f"❌ {message}", ephemeral=True)
+
 
 class Allocate(commands.Cog):
     def __init__(self, bot):
@@ -113,6 +153,15 @@ class Allocate(commands.Cog):
         break_force = player[6]
         crit = player[7]
         dodge = player[8]
+        
+        # Get AP spent from tracker columns (indices 16-22)
+        ap_health = player[16] if len(player) > 16 else 0
+        ap_damage = player[17] if len(player) > 17 else 0
+        ap_armor = player[18] if len(player) > 18 else 0
+        ap_speed = player[19] if len(player) > 19 else 0
+        ap_break = player[20] if len(player) > 20 else 0
+        ap_crit = player[21] if len(player) > 21 else 0
+        ap_dodge = player[22] if len(player) > 22 else 0
 
         em = discord.Embed(
             title="💎 Ability Points Allocation",
@@ -123,16 +172,18 @@ class Allocate(commands.Cog):
         em.add_field(
             name="Current Stats",
             value=(
-                f"❤️ Health: **{health}** (+5 per AP)\n"
-                f"⚔️ Damage: **{damage}** (+1 per AP)\n"
-                f"🛡️ Armor: **{armor}** (+0.5 per AP)\n"
-                f"💨 Speed: **{speed}** (+0.3 per AP)\n"
-                f"⚡ Break Force: **{break_force}** (+0.2 per AP)\n"
-                f"🎯 Crit: **{crit * 100:.1f}%** (+0.3% per AP)\n"
-                f"👟 Dodge: **{dodge * 100:.1f}%** (+0.1% per AP)"
+                f"❤️ Health: **{health}** (+5 per AP) *[+{ap_health}]*\n"
+                f"⚔️ Damage: **{damage}** (+1 per AP) *[+{ap_damage}]*\n"
+                f"🛡️ Armor: **{armor}** (+0.5 per AP) *[+{ap_armor}]*\n"
+                f"💨 Speed: **{speed}** (+0.2 per AP) *[+{ap_speed}]*\n"
+                f"⚡ Break Force: **{break_force}** (+0.2 per AP) *[+{ap_break}]*\n"
+                f"🎯 Crit: **{crit * 100:.1f}%** (+0.3% per AP) *[+{ap_crit}]*\n"
+                f"👟 Dodge: **{dodge * 100:.1f}%** (+0.1% per AP) *[+{ap_dodge}]*"
             ),
             inline=False
         )
+
+        em.set_footer(text="Reset costs 5000 🪙")
 
         view = AllocateView(ctx.author, self.bot)
         await ctx.send(embed=em, view=view)

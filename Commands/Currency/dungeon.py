@@ -582,13 +582,11 @@ class DungeonGame(commands.Cog):
                 levels_gained = current_level - level_before
                 health_gain = levels_gained * 10
                 damage_gain = levels_gained * 2
-                armor_gain = sum(1 for lvl in range(level_before + 1, current_level + 1) if lvl % 2 == 0)
+                armor_gain = levels_gained * 1
                 speed_gain = sum(1 for lvl in range(level_before + 1, current_level + 1) if lvl % 5 == 0)
                 ap_gain = levels_gained * 3
                 
-                stat_text = f"❤️ +{health_gain} HP | ⚔️ +{damage_gain} DMG"
-                if armor_gain > 0:
-                    stat_text += f" | 🛡️ +{armor_gain} ARM"
+                stat_text = f"❤️ +{health_gain} HP | ⚔️ +{damage_gain} DMG | 🛡️ +{armor_gain} ARM"
                 if speed_gain > 0:
                     stat_text += f" | 💨 +{speed_gain} SPD"
                 stat_text += f"\n💎 +{ap_gain} Ability Points"
