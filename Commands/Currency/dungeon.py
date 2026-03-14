@@ -6,6 +6,53 @@ import asyncio
 TURN_DELAY = 1
 
 
+def scale_monster_to_player(monster, player_level):
+    """
+    Scale a monster's stats to match the player's level (or the dungeon's floor level,
+    whichever is higher).
+
+    Scaling formula:
+        ratio       = scaled_level / base_level
+        stat_mult   = ratio ^ 0.75  (sub-linear to avoid runaway growth)
+        reward_mult = ratio ^ 0.80  (slightly steeper for currency/exp)
+
+    Returns a mutable list copy with updated values.
+    """
+    base_level = max(monster[9], 1)
+
+    # Cap: monster can never scale beyond base + 5
+    scaled_level = min(max(player_level, base_level), base_level + 5)
+
+    ratio = scaled_level / base_level
+    stat_mult   = ratio ** 0.75
+    reward_mult = ratio ** 0.80
+
+    m = list(monster)
+    m[2]  = max(1, int(monster[2]  * stat_mult))   # health
+    m[3]  = max(1, int(monster[3]  * stat_mult))   # damage
+    m[4]  = max(0, int(monster[4]  * stat_mult))   # armor
+    m[5]  = max(0, int(monster[5]  * stat_mult))   # tenacity
+    m[6]  = max(1, int(monster[6]  * stat_mult))   # speed
+    m[7]  = min(0.75, round(monster[7] * (1 + (ratio - 1) * 0.05), 4))  # crit
+    m[8]  = min(0.60, round(monster[8] * (1 + (ratio - 1) * 0.05), 4))  # dodge
+    
+    # Calculate modifier bonus to just layer onto the final displayed level
+    modifier = monster[13] if len(monster) > 13 else "normal"
+    mod_bonus = 0
+    if modifier == "mystic":
+        mod_bonus = 1
+    elif modifier in ["brutal", "chaos"]:
+        mod_bonus = 2
+    elif modifier == "giant":
+        mod_bonus = 3
+        
+    m[9]  = scaled_level + mod_bonus                            # effective level
+    m[10] = max(1, int(monster[10] * reward_mult))  # currency_reward
+    m[11] = max(1, int(monster[11] * reward_mult))  # exp_min
+    m[12] = max(m[11], int(monster[12] * reward_mult))  # exp_max
+    return m
+
+
 def calculate_scaled_damage(attack, defense):
     denom = 100 + max(0, defense)
     return max(0.0, attack * (100 / denom))
@@ -185,7 +232,7 @@ def render_dungeon(dungeon):
                     row += "⬛"
 
                 elif tile == "monster":
-                    row += "❓"
+                    row += "👹"
 
                 elif tile == "ladder":
                     row += "🪜"
@@ -262,19 +309,23 @@ class DungeonView(discord.ui.View):
 
             dungeon_monster_level = (self.dungeon.floor - 1) // 3 + 1
 
-            monster = await self.cog.bot.db.get_random_monster_by_level(
+            raw_monster = await self.cog.bot.db.get_random_monster_by_level(
                 dungeon_monster_level
             )
 
-            monster = list(monster)
+            raw_monster = list(raw_monster)
+
+            # Scale monster to the higher of dungeon floor level and player level
+            player = await self.cog.bot.db.get_player(self.ctx.author.id)
+            player_level = player[13]  # level column
+            effective_level = max(dungeon_monster_level, player_level)
+            monster = scale_monster_to_player(raw_monster, effective_level)
 
             embed.add_field(
                 name="Encounter",
-                value=f"👹 **{monster[1]}** appears",
+                value=f"👹 **{monster[1]}** (Lv.**{monster[9]}**) appears",
                 inline=False
             )
-
-            player = await self.cog.bot.db.get_player(self.ctx.author.id)
 
             battle_id = await self.cog.bot.db.start_battle(
                 self.ctx.author.id,
@@ -409,6 +460,11 @@ class DungeonGame(commands.Cog):
         m_exp_max = battle[20]
         m_modifier = battle[21]
         loot_table_id = battle[22]
+
+        # Fetch the monster's base level from the DB for loot tier scaling
+        monster_id = battle[2]
+        raw_monster = await self.bot.db.get_monster(monster_id)
+        m_base_level = raw_monster[9] if raw_monster else 1
 
         max_tenacity = m_tenacity
         is_stunned = False
@@ -595,8 +651,8 @@ class DungeonGame(commands.Cog):
             else:
                 battle_log.append(f"**-----------------------------------\n✨ You gained {exp_gained} EXP ({current_exp}/{exp_needed})\n-----------------------------------**")
 
-            # Roll loot
-            drops = await self.bot.db.roll_loot(loot_table_id, m_modifier)
+            # Roll loot — tier chances scale with how far above base level the monster is
+            drops = await self.bot.db.roll_loot(loot_table_id, m_modifier, m_level, m_base_level)
 
             if drops or m_currency > 0:
                 battle_log.append("🎁 **Drops:**")

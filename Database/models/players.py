@@ -10,9 +10,9 @@ class PlayersDB:
                     user_id INTEGER,
                     
                     health INTEGER default 20,
-                    damage INTEGER default 50,
+                    damage INTEGER default 1,
                     armor INTEGER default 0,
-                    speed INTEGER default 10,
+                    speed INTEGER default 8,
                     break_force INTEGER default 1,
                     critical_chance REAL default 0.05,
                     dodge_chance REAL default 0.05,
@@ -71,6 +71,10 @@ class PlayersDB:
                 await cursor.execute("ALTER TABLE players ADD COLUMN ap_crit INTEGER DEFAULT 0")
             if "ap_dodge" not in cols:
                 await cursor.execute("ALTER TABLE players ADD COLUMN ap_dodge INTEGER DEFAULT 0")
+                
+            # Add boss tracking
+            if "boss_level" not in cols:
+                await cursor.execute("ALTER TABLE players ADD COLUMN boss_level INTEGER DEFAULT 1")
         await self.db.commit()
 
     async def create_player(self, user_id):
@@ -291,28 +295,29 @@ class PlayersDB:
 
     async def recalculate_stats(self, user_id):
         async with self.db.cursor() as cursor:
-            # Get base stats (assuming base stats are 20 health, 5 damage, 0 armor, 10 speed, 1 break_force, 0.05 crit, 0.05 dodge)
-            base_health = 20
-            base_damage = 5
-            base_armor = 0
-            base_speed = 10
-            base_break_force = 1
-            base_crit = 0.05
-            base_dodge = 0.05
-            
-            # Get equipped items
+            # Get player level, AP spent, and equipped items
             await cursor.execute("""
-                SELECT equipped_weapon_id, equipped_armor_id, equipped_accessory_1_id, equipped_accessory_2_id
+                SELECT level, ap_health, ap_damage, ap_armor, ap_speed, ap_break, ap_crit, ap_dodge,
+                       equipped_weapon_id, equipped_armor_id, equipped_accessory_1_id, equipped_accessory_2_id
                 FROM players
                 WHERE user_id = ?
                 """, (user_id,))
             
-            equipped = await cursor.fetchone()
-            if not equipped:
+            player_data = await cursor.fetchone()
+            if not player_data:
                 return
             
-            weapon_id, armor_id, acc1_id, acc2_id = equipped
+            level, ap_health, ap_damage, ap_armor, ap_speed, ap_break, ap_crit, ap_dodge, weapon_id, armor_id, acc1_id, acc2_id = player_data
             
+            # Base stats from player level + AP tracking
+            base_health = 20 + (level - 1) * 10 + (ap_health * 5)
+            base_damage = 1 + (level - 1) * 2 + (ap_damage * 1)
+            base_armor = 0 + (level - 1) * 1 + (ap_armor * 0.5)
+            base_speed = 8 + ((level - 1) // 5) + (ap_speed * 0.2)
+            base_break_force = 1 + (ap_break * 0.2)
+            base_crit = 0.05 + (ap_crit * 0.003)
+            base_dodge = 0.05 + (ap_dodge * 0.001)
+
             # Calculate total stats from equipment
             total_health = base_health
             total_damage = base_damage

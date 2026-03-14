@@ -6,6 +6,57 @@ import random
 TURN_DELAY = 1
 
 
+def scale_monster_to_player(monster, player_level):
+    """
+    Scale a monster tuple's stats so that it matches the given player_level.
+
+    Hard cap: a monster can never be scaled beyond its own base_level + 5.
+        e.g. Slime (base 1) caps at level 6.
+
+    Scaling formula:
+        scaled_level   = min(player_level, base_level + 5)
+        level_ratio    = scaled_level / max(base_level, 1)
+        stat_mult      = level_ratio ^ 0.75   (sub-linear – avoids runaway growth)
+        reward_mult    = level_ratio ^ 0.80   (slightly steeper for rewards)
+
+    Returns a *list* copy of the monster with replaced values.
+    """
+    base_level = max(monster[9], 1)
+
+    # Cap: monster can never scale beyond base + 5
+    scaled_level = min(max(player_level, base_level), base_level + 5)
+
+    ratio = scaled_level / base_level
+    stat_mult   = ratio ** 0.75
+    reward_mult = ratio ** 0.80
+
+    m = list(monster)
+    m[2]  = max(1, int(monster[2]  * stat_mult))   # health
+    m[3]  = max(1, int(monster[3]  * stat_mult))   # damage
+    m[4]  = max(0, int(monster[4]  * stat_mult))   # armor
+    m[5]  = max(0, int(monster[5]  * stat_mult))   # tenacity
+    m[6]  = max(1, int(monster[6]  * stat_mult))   # speed
+    # crit/dodge are capped at sensible maximums
+    m[7]  = min(0.75, round(monster[7]  * (1 + (ratio - 1) * 0.05), 4))  # crit
+    m[8]  = min(0.60, round(monster[8]  * (1 + (ratio - 1) * 0.05), 4))  # dodge
+    
+    # Calculate modifier bonus to just layer onto the final displayed level
+    modifier = monster[13] if len(monster) > 13 else "normal"
+    mod_bonus = 0
+    if modifier == "mystic":
+        mod_bonus = 1
+    elif modifier in ["brutal", "chaos"]:
+        mod_bonus = 2
+    elif modifier == "giant":
+        mod_bonus = 3
+        
+    m[9]  = scaled_level + mod_bonus                       # effective level
+    m[10] = max(1, int(monster[10] * reward_mult)) # currency_reward
+    m[11] = max(1, int(monster[11] * reward_mult)) # exp_min
+    m[12] = max(m[11], int(monster[12] * reward_mult))  # exp_max
+    return m
+
+
 def calculate_scaled_damage(attack, defense):
     """Common mitigation formula: atk * (100 / (100 + def))."""
     denom = 100 + max(0, defense)
@@ -74,6 +125,11 @@ class Hunt(commands.Cog):
         m_exp_max = battle[20]
         m_modifier = battle[21]
         loot_table_id = battle[22]
+
+        # Fetch the monster's base level from the DB for loot tier scaling
+        monster_id = battle[2]
+        raw_monster = await self.bot.db.get_monster(monster_id)
+        m_base_level = raw_monster[9] if raw_monster else 1
 
         max_tenacity = m_tenacity
         is_stunned = False
@@ -262,8 +318,8 @@ class Hunt(commands.Cog):
             else:
                 battle_log.append(f"**-----------------------------------\n✨ You gained {exp_gained} EXP ({current_exp}/{exp_needed})\n-----------------------------------**")
 
-            # Roll loot
-            drops = await self.bot.db.roll_loot(loot_table_id, m_modifier)
+            # Roll loot — tier chances scale with how far above base level the monster is
+            drops = await self.bot.db.roll_loot(loot_table_id, m_modifier, m_level, m_base_level)
 
             if drops or m_currency > 0:
                 battle_log.append("🎁 **Drops:**")
@@ -344,6 +400,8 @@ class Hunt(commands.Cog):
             dodge_chance,
             level,
             currency_reward,
+            exp_min,
+            exp_max,
             monster_modifier,
             loot_table_id,
         ) = monster
@@ -436,35 +494,61 @@ class Hunt(commands.Cog):
     async def hunt(self, ctx):
         try:
             player = await self.bot.db.players.get_player(ctx.author.id)
+            player_level = player[13]  # level column
 
-            monster = await self.bot.db.monsters.get_random_monster()
+            # Only pick monsters whose:
+            # 1. Cap level (base + 5) can reach the player's level -> pool_min = player_level - 5
+            # 2. Base level is no more than 1 level above the player -> pool_max = player_level + 1
+            pool_min = max(1, player_level - 5)
+            pool_max = player_level + 1
+            raw_monster = await self.bot.db.monsters.get_random_monster_in_level_range(pool_min, pool_max)
+
+            if raw_monster is None:
+                await ctx.send("No monsters found. Try again later!")
+                return
+
+            # Roll the fight level in [player_level - 1, player_level + 1],
+            # never below the monster's own base level,
+            # and never above base_level + 5 (hard monster cap).
+            base_level = raw_monster[9]
+            if player_level == 1:
+                min_level = 1
+            else:
+                min_level = max(base_level, player_level - 1)
+            max_level = min(player_level + 1, base_level + 5)
+            # Ensure min <= max (e.g. if base_level + 5 < player_level - 1)
+            max_level = max(min_level, max_level)
+            scaled_level = random.randint(min_level, max_level)
+
+            # Scale the monster's stats to the chosen fight level
+            monster = scale_monster_to_player(raw_monster, scaled_level)
 
             battle_id = await self.bot.db.battle_logs.start_battle(
                 ctx.author.id,
                 monster[0],  # monster_id
-                player[2],  # p_health
-                player[3],  # p_damage
-                player[4],  # p_armor
-                player[5],  # p_speed
-                player[6],  # p_break
-                player[7],  # p_crit
-                player[8],  # p_dodge
-                monster[2],  # m_health
-                monster[3],  # m_damage
-                monster[4],  # m_armor
-                monster[5],  # m_tenacity
-                monster[6],  # m_speed
-                monster[7],  # m_crit
-                monster[8],  # m_dodge
-                monster[9],  # m_level
-                monster[10], # m_currency
-                monster[11], # m_exp_min
-                monster[12], # m_exp_max
+                player[2],   # p_health
+                player[3],   # p_damage
+                player[4],   # p_armor
+                player[5],   # p_speed
+                player[6],   # p_break
+                player[7],   # p_crit
+                player[8],   # p_dodge
+                monster[2],  # m_health  (scaled)
+                monster[3],  # m_damage  (scaled)
+                monster[4],  # m_armor   (scaled)
+                monster[5],  # m_tenacity (scaled)
+                monster[6],  # m_speed   (scaled)
+                monster[7],  # m_crit    (scaled)
+                monster[8],  # m_dodge   (scaled)
+                monster[9],  # m_level   (= player_level)
+                monster[10], # m_currency (scaled)
+                monster[11], # m_exp_min  (scaled)
+                monster[12], # m_exp_max  (scaled)
                 monster[13], # m_modifier
                 monster[14]  # m_loot_table_id
             )
 
-            await ctx.send(f"👹 A **{monster[1]}** appeared!")
+            await ctx.send(f"👹 A **{monster[1]}** (Lv.**{monster[9]}**) appeared!")
 
             asyncio.create_task(self.run_monster_battle(ctx, battle_id))
 

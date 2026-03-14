@@ -76,58 +76,62 @@ class LootTableItemsDB:
 
             return await cursor.fetchall()
 
-    def get_tier_chances(self, modifier):
+    def get_tier_chances(self, modifier, monster_level=1, monster_base_level=1):
+        """
+        Calculate weighted tier chances.
+
+        Tier ramp is driven by the *excess* levels above the monster's own base level:
+            level_excess = max(0, monster_level - monster_base_level)
+
+        At 0 excess  → baseline chances (no bonus).
+        Every +2 levels above base → one tier step forward.
+            level_factor = min(4.0, level_excess / 2.0)
+
+        Examples:
+            Slime  (base 1) at level 1 → level_factor 0.0 → baseline
+            Slime  (base 1) at level 3 → level_factor 1.0 → uncommon bumped
+            Bandit (base 5) at level 5 → level_factor 0.0 → baseline
+            Bandit (base 5) at level 7 → level_factor 1.0 → uncommon bumped
+        """
 
         TIER_DROP = {
-            "common": 0.55,
-            "uncommon": 0.2,
-            "rare": 0.15,
-            "epic": 0.07,
-            "legendary": 0.03
+            "common":    0.55,
+            "uncommon":  0.20,
+            "rare":      0.15,
+            "epic":      0.07,
+            "legendary": 0.03,
         }
 
         MODIFIER_TIER_BONUS = {
-
             "normal": {},
-
-            "mystic": {
-                "uncommon": 1.2,
-                "rare": 1.4,
-                "epic": 1.6,
-                "legendary": 2
-            },
-
-            "brutal": {
-                "uncommon": 1.2,
-                "rare": 1.4,
-                "epic": 1.6,
-                "legendary": 2
-            },
-
-            "chaos": {
-                "uncommon": 1.2,
-                "rare": 1.4,
-                "epic": 1.6,
-                "legendary": 2
-            },
-
-            "giant": {
-                "uncommon": 1.2,
-                "rare": 1.4,
-                "epic": 1.6,
-                "legendary": 2
-            }
+            "mystic":  {"uncommon": 1.4, "rare": 1.8, "epic": 1.8, "legendary": 1.5},
+            "brutal":  {"uncommon": 0.9, "rare": 2.5, "epic": 2.0, "legendary": 1.8},
+            "chaos":   {"uncommon": 0.8, "rare": 3.5, "epic": 2.5, "legendary": 2.0},
+            "giant":   {"uncommon": 0.5, "rare": 8.0, "epic": 3.0, "legendary": 4.0},
         }
 
         chances = TIER_DROP.copy()
 
-        bonus = MODIFIER_TIER_BONUS.get(modifier, {})
-
-        for tier, mult in bonus.items():
+        # Apply modifier bonus
+        for tier, mult in MODIFIER_TIER_BONUS.get(modifier, {}).items():
             chances[tier] *= mult
 
-        total = sum(chances.values())
+        # Apply level-excess bonus:
+        # every 2 levels above base = 1 tier-factor step, capped at 4 steps (8 lvls above base)
+        level_excess = max(0, monster_level - monster_base_level)
+        level_factor = min(4.0, level_excess / 2.0)
 
+        LEVEL_TIER_SCALING = {
+            "uncommon":  0.5,   # fastest to ramp up
+            "rare":      0.8,
+            "epic":      1.1,
+            "legendary": 1.4,
+        }
+        for tier, scale in LEVEL_TIER_SCALING.items():
+            chances[tier] *= (1.0 + level_factor * scale)
+
+        # Normalise so all chances sum to 1
+        total = sum(chances.values())
         for t in chances:
             chances[t] /= total
 
@@ -144,15 +148,15 @@ class LootTableItemsDB:
 
         return "common"
 
-    async def roll_loot(self, loot_table_id, modifier):
+    async def roll_loot(self, loot_table_id, modifier, monster_level=1, monster_base_level=1):
 
         items = await self.get_loot_items(loot_table_id)
 
         if not items:
             return []
 
-        # get tier chances based on modifier
-        tier_chances = self.get_tier_chances(modifier)
+        # get tier chances based on modifier + how far monster is above its base level
+        tier_chances = self.get_tier_chances(modifier, monster_level, monster_base_level)
 
         drops = []
 

@@ -56,60 +56,193 @@ class LootTablesDB:
         # Define loot table data: monster_name -> [(item_name, drop_chance, min, max), ...]
         LOOT_DATA = {
             "Slime": [
-                ("Rusty Copper Sword", 0.2, 1, 1),
-                ("Rusty Copper Armor", 0.2, 1, 1),
-                ("Rusty Copper Axe", 0.2, 1, 1),
-                ("Rusty Copper Knife", 0.2, 1, 1),
+                ("Rusty Copper Sword", 0.4, 1, 1),
+                ("Rusty Copper Armor", 0.4, 1, 1),
+                ("Rusty Copper Axe", 0.4, 1, 1),
+                ("Rusty Copper Knife", 0.4, 1, 1),
             ],
             "Goblin": [
-                ("Rusty Copper Sword", 0.2, 1, 1),
-                ("Rusty Copper Armor", 0.2, 1, 1),
-                ("Rusty Copper Axe", 0.2, 1, 1),
-                ("Rusty Copper Knife", 0.2, 1, 1),
-                ("Copper Sword", 0.1, 1, 1),
-                ("Copper Armor", 0.1, 1, 1),
-            ],
-            "Wolf": [
+                ("Rusty Copper Sword", 0.4, 1, 1),
+                ("Rusty Copper Armor", 0.4, 1, 1),
+                ("Rusty Copper Axe", 0.4, 1, 1),
+                ("Rusty Copper Knife", 0.4, 1, 1),
                 ("Copper Sword", 0.2, 1, 1),
                 ("Copper Armor", 0.2, 1, 1),
             ],
+            "Wolf": [
+                ("Copper Sword", 0.4, 1, 1),
+                ("Copper Armor", 0.4, 1, 1),
+            ],
             "Orc": [
-                ("Copper Sword", 0.9, 1, 1),
-                ("Copper Armor", 0.9, 1, 1),
-                ("Orc Mace", 0.7, 1, 1),
-                ("Orc Heart", 0.7, 1, 1),
+                ("Copper Sword", 1.8, 1, 1),
+                ("Copper Armor", 1.8, 1, 1),
+                ("Orc Mace", 1.4, 1, 1),
+                ("Orc Heart", 1.4, 1, 1),
             ],
 
             "Skeleton": [
-                ("Copper Sword", 0.9, 1, 1),
-                ("Copper Armor", 0.9, 1, 1),
-                ("Cursed Bone", 0.7, 1, 1),
-                ("Cursed Skull", 0.7, 1, 1),
+                ("Copper Sword", 1.8, 1, 1),
+                ("Copper Armor", 1.8, 1, 1),
+                ("Cursed Bone", 1.4, 1, 1),
+                ("Cursed Skull", 1.4, 1, 1),
             ],
 
             "Bandit": [
-                ("Steel Sword", 0.6, 1, 1),
-                ("Steel Armor", 0.6, 1, 1),
-                ("Bandit Knife", 0.3, 1, 1),
-                ("Ninja Suit", 0.3, 1, 1),
+                ("Steel Sword", 1.2, 1, 1),
+                ("Steel Armor", 1.2, 1, 1),
+                ("Bandit Knife", 0.6, 1, 1),
+                ("Ninja Suit", 0.6, 1, 1),
             ],
 
             "Venus Fly Trap": [
-                ("Steel Sword", 0.6, 1, 1),
-                ("Steel Armor", 0.6, 1, 1),
-                ("Thorn Vine", 0.3, 1, 1),
-                ("Life Bloom", 0.3, 1, 1),
+                ("Steel Sword", 1.2, 1, 1),
+                ("Steel Armor", 1.2, 1, 1),
+                ("Thorn Vine", 0.6, 1, 1),
+                ("Life Bloom", 0.6, 1, 1),
             ],
 
             "Cursed Knight": [
-                ("Knight Claymore", 0.3, 1, 1),
-                ("Knight Insignia", 0.3, 1, 1),
-                ("Knight Armor", 0.3, 1, 1),
+                ("Knight Claymore", 0.6, 1, 1),
+                ("Knight Insignia", 0.6, 1, 1),
+                ("Knight Armor", 0.6, 1, 1),
             ],
 
             "Drowned": [
-                ("Broken Trident", 0.3, 1, 1),
-                ("Sea Prism", 0.3, 1, 1),
+                ("Broken Trident", 0.6, 1, 1),
+                ("Sea Prism", 0.6, 1, 1),
+            ],
+
+            "Ectoplasm": [
+                ("Lost Soul", 0.6, 1, 1),
+            ],
+
+            "High Orc": [
+                ("King Club", 0.6, 1, 1),
+                ("Nazar", 0.6, 1, 1),
+            ],
+
+            "Death Root": [
+                ("Death Core", 0.6, 1, 1),
+                ("Death Whip", 0.6, 1, 1),
+            ],
+
+            "Corpse Pile": [
+                ("Flesh Armor", 0.6, 1, 1),
+                ("Rotten Meat", 0.6, 1, 1),
+            ],
+
+            "Shadow Assassin": [
+                ("Shadow Coat", 0.6, 1, 1),
+                ("Black Knife", 0.6, 1, 1),
+            ],
+
+            "Raptor": [
+                ("Raptor Claw", 0.6, 1, 1),
+            ],
+
+            "Antlion": [
+                ("Hour Glass", 0.6, 1, 1),
+                ("Revert Hour Glass", 0.6, 1, 1),
+                ("Mandible", 0.6, 1, 1),
+            ],
+
+            "Snowy": [
+                ("Ice Cage", 0.6, 1, 1),
+                ("Imbued Ice Cube", 0.6, 1, 1),
+            ],
+
+            "Gazer": [
+                ("The Eye", 0.6, 1, 1),
+            ],
+
+            "Void Crawler": [
+                ("Void Fang", 0.6, 1, 1),
+            ],
+
+            "Abyss Bat": [
+                ("Abyss Cloak", 0.6, 1, 1),
+                ("Soul Lantern", 0.6, 1, 1),
+            ],
+
+            "Bone Golem": [
+                ("Bone Colossus Hammer", 0.6, 1, 1),
+            ],
+
+            "Ghoul": [
+                ("Ghoul Claw", 0.6, 1, 1),
+                ("Necromancer Robe", 0.6, 1, 1),
+            ],
+
+            "Plague Rat": [
+                ("Plague Dagger", 0.6, 1, 1),
+                ("Plague", 0.6, 1, 1),
+            ],
+
+            "Cultist": [
+                ("Cultist Mask", 0.6, 1, 1),
+            ],
+
+            "Stone Gargoyle": [
+                ("Gargoyle Armor", 0.6, 1, 1),
+                ("Stone Sigil", 0.6, 1, 1),
+            ],
+
+            "Cave Stalker": [
+                ("Cave Fang Blade", 0.6, 1, 1),
+            ],
+
+            "Blood Priest": [
+                ("Blood Ritual Knife",0.6, 1, 1),
+                ("Blood Pendant", 0.6, 1, 1),
+                ("Ritual Robe", 0.6, 1, 1),
+            ],
+
+            "Bone Crusher": [
+                ("Bone Crusher", 0.6, 1, 1),
+            ],
+
+            "Abyss Serpent": [
+                ("Serpent Spear", 0.6, 1, 1),
+                ("Heart Of The Sea", 0.6, 1, 1),
+            ],
+
+            "Dread Knight": [
+                ("Dread Knight Greatsword", 0.6, 1, 1),
+                ("Dread Plate", 0.6, 1, 1),
+            ],
+
+            "Soul Devourer": [
+                ("Soul Eater", 0.6, 1, 1),
+                ("Soul Phaser", 0.6, 1, 1),
+            ],
+
+            "Grave Titan": [
+                ("Titan Bone", 0.6, 1, 1),
+            ],
+
+            "Nether Hound": [
+                ("Nether Edge", 0.6, 1, 1),
+            ],
+
+            "Crystal Guardian": [
+
+            ],
+
+            "Void Reaper": [
+                ("Void Crown", 0.6, 1, 1),
+            ],
+
+            "Ancient Lich": [
+
+            ],
+
+            "Frost Titan": [
+
+            ],
+
+            "Abyss Overlord": [
+                ("Abyss Overlord Blade", 0.6, 1, 1),
+                ("Overlord Sigil", 0.6, 1, 1),
             ],
         }
 
