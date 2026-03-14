@@ -318,6 +318,7 @@ class DungeonView(discord.ui.View):
             # Scale monster to the higher of dungeon floor level and player level
             player = await self.cog.bot.db.get_player(self.ctx.author.id)
             player_level = player[13]  # level column
+            player_current_health = player[23] if player[23] is not None else player[2]
             effective_level = max(dungeon_monster_level, player_level)
             monster = scale_monster_to_player(raw_monster, effective_level)
 
@@ -331,7 +332,7 @@ class DungeonView(discord.ui.View):
                 self.ctx.author.id,
                 monster[0],
 
-                player[2],
+                player_current_health,
                 player[3],
                 player[4],
                 player[5],
@@ -613,10 +614,16 @@ class DungeonGame(commands.Cog):
 
             battle_log.append("💀 You were defeated!")
 
+            player_data = await self.bot.db.get_player(player_id)
+            max_health = player_data[2]
+            death_hp = max(1, int(max_health * 0.5))
+            await self.bot.db.players.update_current_health(player_id, death_hp)
+
         # ===== PLAYER WON =====
         else:
 
             await self.bot.db.battle_logs.end_battle(battle_id, "won")
+            await self.bot.db.players.update_current_health(player_id, max(1, p_hp))
 
             battle_log.append("🏆 You defeated the monster")
 
@@ -627,7 +634,7 @@ class DungeonGame(commands.Cog):
             player_data_before = await self.bot.db.get_player(player_id)
             level_before = player_data_before[13]
             
-            leveled_up = await self.bot.db.add_exp(player_id, exp_gained)
+            leveled_up, new_level, total_ap_gained = await self.bot.db.add_exp(player_id, exp_gained)
 
             player_data = await self.bot.db.get_player(player_id)
             current_level = player_data[13]  # level column

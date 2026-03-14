@@ -108,7 +108,7 @@ class Hunt(commands.Cog):
 
             player_id = battle[1]
             player_data = await self.bot.db.get_player(player_id)
-            p_hp = player_data[24] if player_data[24] is not None else player_data[2]
+            p_hp = battle[3]
 
             p_damage = player_data[3]
             p_armor = player_data[4]
@@ -283,7 +283,8 @@ class Hunt(commands.Cog):
                 battle_log.append("💀 You were defeated!")
                 player_data = await self.bot.db.get_player(player_id)
                 max_health = player_data[2]
-                await self.bot.db.players.update_current_health(player_id, max_health // 2)
+                death_hp = max(1, int(max_health * 0.5))
+                await self.bot.db.players.update_current_health(player_id, death_hp)
                 self.death_cooldowns[player_id] = datetime.datetime.now() + datetime.timedelta(seconds=60)
 
             # ===== PLAYER WON =====
@@ -527,6 +528,7 @@ class Hunt(commands.Cog):
         try:
             player = await self.bot.db.players.get_player(ctx.author.id)
             player_level = player[13]  # level column
+            current_health = player[23] if player[23] is not None else player[2]
 
             # Only pick monsters whose:
             # 1. Cap level (base + 5) can reach the player's level -> pool_min = player_level - 5
@@ -558,7 +560,7 @@ class Hunt(commands.Cog):
             battle_id = await self.bot.db.battle_logs.start_battle(
                 ctx.author.id,
                 monster[0],  # monster_id
-                player[2],   # p_health
+                current_health,   # p_health
                 player[3],   # p_damage
                 player[4],   # p_armor
                 player[5],   # p_speed

@@ -35,7 +35,7 @@ class Heal(commands.Cog):
     async def heal(self, ctx):
         player = await self.bot.db.players.get_player(ctx.author.id)
         max_health = player[2]
-        current_health = player[24] if player[24] is not None else max_health
+        current_health = player[23] if player[23] is not None else max_health
 
         if current_health >= max_health:
             return await ctx.send("You are already at full health!")
@@ -63,8 +63,9 @@ class Heal(commands.Cog):
 
         if view.confirmed:
             await self.bot.db.update_wallet(ctx.author.id, -heal_cost)
-            await self.bot.db.players.update_current_health(ctx.author.id, max_health)
-            await message.edit(content=f"You have been healed to full health for {heal_cost} coins.", view=None)
+            new_health = current_health + missing_health
+            await self.bot.db.players.update_current_health(ctx.author.id, new_health)
+            await message.edit(content=f"You have been healed for {missing_health} HP for {heal_cost} coins.", view=None)
         else:
             await message.edit(content="Healing cancelled.", view=None)
 

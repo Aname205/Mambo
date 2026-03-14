@@ -99,7 +99,7 @@ class StatusView(discord.ui.View):
 
     def update_embed(self, message=None):
         max_health = self.player[2]
-        current_health = self.player[24] if self.player[24] is not None else max_health
+        current_health = self.player[23] if self.player[23] is not None else max_health
         damage = self.player[3]
         armor = self.player[4]
         speed = self.player[5]

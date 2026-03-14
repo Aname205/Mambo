@@ -9,11 +9,11 @@ class PlayersDB:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER,
                     
-                    health INTEGER default 20,
-                    damage INTEGER default 1,
+                    health INTEGER default 100,
+                    damage INTEGER default 10,
                     armor INTEGER default 0,
                     speed INTEGER default 8,
-                    break_force INTEGER default 1,
+                    break_force INTEGER default 5,
                     critical_chance REAL default 0.05,
                     dodge_chance REAL default 0.05,
                     
@@ -80,13 +80,20 @@ class PlayersDB:
             
             if "current_health" not in cols:
                 await cursor.execute("ALTER TABLE players ADD COLUMN current_health INTEGER")
+            
+            # Fix any rows where current_health was never properly initialized (NULL or 0)
+            await cursor.execute("""
+                UPDATE players
+                SET current_health = health
+                WHERE current_health IS NULL OR current_health < 1
+            """)
         await self.db.commit()
 
     async def create_player(self, user_id):
         async with self.db.cursor() as cursor:
             await cursor.execute("""
-                INSERT OR IGNORE INTO players(user_id) 
-                VALUES(?)""", (user_id,))
+                INSERT OR IGNORE INTO players(user_id, current_health) 
+                VALUES(?, 100)""", (user_id,))
         await self.db.commit()
 
     @staticmethod
@@ -147,13 +154,13 @@ class PlayersDB:
         Returns: (success: bool, message: str, remaining_points: int)
         """
         stat_increases = {
-            "health": 5,
-            "damage": 1,
-            "armor": 0.5,
+            "health": 10,
+            "damage": 2,
+            "armor": 1,
             "speed": 0.2,
             "break_force": 0.2,
-            "critical_chance": 0.003,  # 0.3% = 0.003
-            "dodge_chance": 0.001  # 0.1% = 0.001
+            "critical_chance": 0.003,
+            "dodge_chance": 0.001
         }
         
         stat_to_ap_column = {
@@ -192,6 +199,12 @@ class PlayersDB:
                     ability_points = ability_points - 1
                 WHERE user_id = ?
             """, (increase, user_id))
+
+            # If spending on health, restore current_health to new max
+            if stat == "health":
+                await cursor.execute("""
+                    UPDATE players SET current_health = health WHERE user_id = ?
+                """, (user_id,))
             
             await self.db.commit()
             
@@ -219,9 +232,9 @@ class PlayersDB:
             ap_health, ap_damage, ap_armor, ap_speed, ap_break, ap_crit, ap_dodge = row[2:9]
             
             # Calculate how much to subtract (AP bonuses only)
-            health_reduction = ap_health * 5
-            damage_reduction = ap_damage * 1
-            armor_reduction = ap_armor * 0.5
+            health_reduction = ap_health * 10
+            damage_reduction = ap_damage * 2
+            armor_reduction = ap_armor * 1
             speed_reduction = ap_speed * 0.2
             break_reduction = ap_break * 0.2
             crit_reduction = ap_crit * 0.003
@@ -239,10 +252,6 @@ class PlayersDB:
                 SET health = health - ?,
                     damage = damage - ?,
                     armor = armor - ?,
-                    speed = speed - ?,
-                    break_force = break_force - ?,
-                    critical_chance = critical_chance - ?,
-                    dodge_chance = dodge_chance - ?,
                     ability_points = ?,
                     ap_health = 0,
                     ap_damage = 0,
@@ -252,8 +261,7 @@ class PlayersDB:
                     ap_crit = 0,
                     ap_dodge = 0
                 WHERE user_id = ?
-            """, (health_reduction, damage_reduction, armor_reduction, speed_reduction, 
-                  break_reduction, crit_reduction, dodge_reduction, total_ap, user_id))
+            """, (health_reduction, damage_reduction, armor_reduction, total_ap, user_id))
             
             await self.db.commit()
             
@@ -270,6 +278,11 @@ class PlayersDB:
 
         if player is None:
             await self.create_player(user_id)
+            return await self.get_player(user_id)
+
+        # If current_health is NULL or invalid, reset to max_health
+        if player[23] is None or player[23] < 1:
+            await self.update_current_health(user_id, player[2])
             return await self.get_player(user_id)
 
         return player
@@ -316,7 +329,8 @@ class PlayersDB:
                 return
             
             old_max_health, old_current_health = old_stats
-            health_deficit = old_max_health - (old_current_health if old_current_health is not None else old_max_health)
+            current_health = old_current_health if old_current_health is not None else old_max_health
+            missing_health = old_max_health - current_health
 
             # Get player level, AP spent, and equipped items
             await cursor.execute("""
@@ -333,11 +347,11 @@ class PlayersDB:
             level, ap_health, ap_damage, ap_armor, ap_speed, ap_break, ap_crit, ap_dodge, weapon_id, armor_id, acc1_id, acc2_id = player_data
             
             # Base stats from player level + AP tracking
-            base_health = 20 + (level - 1) * 10 + (ap_health * 5)
-            base_damage = 1 + (level - 1) * 2 + (ap_damage * 1)
-            base_armor = 0 + (level - 1) * 1 + (ap_armor * 0.5)
+            base_health = 100 + (level - 1) * 10 + (ap_health * 10)
+            base_damage = 10 + (level - 1) * 2 + (ap_damage * 2)
+            base_armor = 0 + (level - 1) * 1 + (ap_armor * 1)
             base_speed = 8 + ((level - 1) // 5) + (ap_speed * 0.2)
-            base_break_force = 1 + (ap_break * 0.2)
+            base_break_force = 5 + (ap_break * 0.2)
             base_crit = 0.05 + (ap_crit * 0.003)
             base_dodge = 0.05 + (ap_dodge * 0.001)
 
@@ -369,7 +383,7 @@ class PlayersDB:
                         total_crit += eq_stats[5]
                         total_dodge += eq_stats[6]
             
-            new_current_health = max(1, total_health - health_deficit)
+            new_current_health = max(1, total_health - missing_health)
 
             # Update player stats
             await cursor.execute("""

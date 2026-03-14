@@ -111,10 +111,10 @@ class BattleLogsDB:
                     monster_modifier,
                     monster_loot_table_id
                 ))
+            battle_id = cursor.lastrowid
 
         await self.db.commit()
 
-        battle_id = cursor.lastrowid
         return battle_id
 
     async def get_active_battle(self, battle_id):
