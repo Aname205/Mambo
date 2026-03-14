@@ -5,9 +5,11 @@ from dotenv import load_dotenv
 import asyncio
 import os
 import sys
-from keep_alive import keep_alive
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+# Add project root to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from Main.keep_alive import keep_alive
 
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
@@ -76,6 +78,7 @@ async def main():
         await bot.load_extension("Commands.Currency.dungeon")
         await bot.load_extension("Commands.Currency.boss")
         await bot.load_extension("Commands.Currency.allocate")
+        await bot.load_extension("Commands.Currency.heal")
         await start_bot_with_retry()
 
 asyncio.run(main())

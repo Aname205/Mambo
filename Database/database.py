@@ -410,3 +410,4 @@ class Database:
     async def roll_loot(self, loot_table_id, modifier, monster_level=1, monster_base_level=1):
         return await self.loot_table_items.roll_loot(loot_table_id, modifier, monster_level, monster_base_level)
 
+

@@ -33,6 +33,8 @@ class PlayersDB:
                     ap_crit INTEGER default 0,
                     ap_dodge INTEGER default 0,
                     
+                    current_health INTEGER,
+
                     FOREIGN KEY (equipped_weapon_id) REFERENCES equipments(id),
                     FOREIGN KEY (equipped_armor_id) REFERENCES equipments(id),
                     FOREIGN KEY (equipped_accessory_1_id) REFERENCES equipments(id),
@@ -75,6 +77,9 @@ class PlayersDB:
             # Add boss tracking
             if "boss_level" not in cols:
                 await cursor.execute("ALTER TABLE players ADD COLUMN boss_level INTEGER DEFAULT 1")
+            
+            if "current_health" not in cols:
+                await cursor.execute("ALTER TABLE players ADD COLUMN current_health INTEGER")
         await self.db.commit()
 
     async def create_player(self, user_id):
@@ -99,34 +104,31 @@ class PlayersDB:
             await cursor.execute("SELECT level, exp FROM players WHERE user_id = ?", (user_id,))
             row = await cursor.fetchone()
             if not row:
-                return False
+                return False, 0, 0
             current_level, current_exp = row
             new_exp = current_exp + amount
             new_level = current_level
             leveled_up = False
+            total_ap_gained = 0
             
             while new_level < 50 and new_exp >= self.exp_required(new_level + 1):
                 new_exp -= self.exp_required(new_level + 1)
                 new_level += 1
                 leveled_up = True
                 
-                # Apply stat increases per level
-                # Health: +10 per level
-                # Damage: +2 per level
-                # Armor: +1 every 2 levels
-                # Speed: +1 at levels 5, 10, 15, 20, etc.
-                # Ability Points: +3 per level
+                ap_gain = 5 + (5 * (new_level // 10))
+                total_ap_gained += ap_gain
                 
                 await cursor.execute("""
                     UPDATE players 
                     SET health = health + 10,
                         damage = damage + 2,
                         armor = armor + 1,
-                        ability_points = ability_points + 3
+                        ability_points = ability_points + ?,
+                        current_health = health + 10
                     WHERE user_id = ?
-                """, (user_id,))
+                """, (ap_gain, user_id))
                 
-                # Speed increase every 5 levels
                 if new_level % 5 == 0:
                     await cursor.execute("""
                         UPDATE players 
@@ -136,7 +138,7 @@ class PlayersDB:
             
             await cursor.execute("UPDATE players SET level = ?, exp = ? WHERE user_id = ?", (new_level, new_exp, user_id))
         await self.db.commit()
-        return leveled_up
+        return leveled_up, new_level, total_ap_gained
 
     async def spend_ability_point(self, user_id, stat):
         """
@@ -225,9 +227,12 @@ class PlayersDB:
             crit_reduction = ap_crit * 0.003
             dodge_reduction = ap_dodge * 0.001
             
-            # Calculate total AP earned from leveling
-            total_ap = (level - 1) * 3
-            
+            # Recalculate the total AP earned by summing the AP from each level-up
+            total_ap = 0
+            for i in range(1, level):
+                lvl = i + 1
+                total_ap += 5 + (5 * (lvl // 10))
+
             # Remove only AP bonuses, reset AP trackers, and refund all AP
             await cursor.execute("""
                 UPDATE players 
@@ -269,6 +274,11 @@ class PlayersDB:
 
         return player
 
+    async def update_current_health(self, user_id, new_health):
+        async with self.db.cursor() as cursor:
+            await cursor.execute("UPDATE players SET current_health = ? WHERE user_id = ?", (new_health, user_id))
+        await self.db.commit()
+
     # Flexible stat update
     async def update_stats(self, user_id, **kwargs):
         if not kwargs:
@@ -295,6 +305,19 @@ class PlayersDB:
 
     async def recalculate_stats(self, user_id):
         async with self.db.cursor() as cursor:
+            # Get player's current state before recalculation
+            await cursor.execute("""
+                SELECT health, current_health
+                FROM players
+                WHERE user_id = ?
+            """, (user_id,))
+            old_stats = await cursor.fetchone()
+            if not old_stats:
+                return
+            
+            old_max_health, old_current_health = old_stats
+            health_deficit = old_max_health - (old_current_health if old_current_health is not None else old_max_health)
+
             # Get player level, AP spent, and equipped items
             await cursor.execute("""
                 SELECT level, ap_health, ap_damage, ap_armor, ap_speed, ap_break, ap_crit, ap_dodge,
@@ -346,6 +369,8 @@ class PlayersDB:
                         total_crit += eq_stats[5]
                         total_dodge += eq_stats[6]
             
+            new_current_health = max(1, total_health - health_deficit)
+
             # Update player stats
             await cursor.execute("""
                 UPDATE players
@@ -355,10 +380,11 @@ class PlayersDB:
                     speed = ?,
                     break_force = ?,
                     critical_chance = ?,
-                    dodge_chance = ?
+                    dodge_chance = ?,
+                    current_health = ?
                 WHERE user_id = ?
-                """, (total_health, total_damage, total_armor, total_speed, total_break_force, total_crit, total_dodge, user_id))
-        
+                """, (total_health, total_damage, total_armor, total_speed, total_break_force, total_crit, total_dodge, new_current_health, user_id))
+
         await self.db.commit()
 
     # Equip weapon or armor

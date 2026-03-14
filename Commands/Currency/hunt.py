@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands
 import asyncio
 import random
+import datetime
+from collections import defaultdict, deque
 
 TURN_DELAY = 1
 
@@ -66,6 +68,9 @@ def calculate_scaled_damage(attack, defense):
 class Hunt(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.active_hunts = set()  # Track users currently in a hunt
+        self.hunt_wins = defaultdict(lambda: deque(maxlen=10))  # Track hunt wins for rate limiting
+        self.death_cooldowns = {}
 
     async def _resolve_monster(self, monster_name: str):
         """Resolve a monster by exact/prefix/contains matching. Returns (monster, error_message)."""
@@ -97,270 +102,274 @@ class Hunt(commands.Cog):
 
         return None, f"Monster **{monster_name}** not found. Use a more specific name."
 
-    async def run_monster_battle(self, ctx, battle_id):
+    async def run_monster_battle(self, ctx, battle_id, win_count):
+        try:
+            battle = await self.bot.db.get_active_battle(battle_id)
 
-        battle = await self.bot.db.get_active_battle(battle_id)
+            player_id = battle[1]
+            player_data = await self.bot.db.get_player(player_id)
+            p_hp = player_data[24] if player_data[24] is not None else player_data[2]
 
-        player_id = battle[1]
+            p_damage = player_data[3]
+            p_armor = player_data[4]
+            p_speed = player_data[5]
+            p_break = player_data[6]
+            p_crit = player_data[7]
+            p_dodge = player_data[8]
 
-        p_hp = battle[3]
-        p_damage = battle[4]
-        p_armor = battle[5]
-        p_speed = battle[6]
-        p_break = battle[7]
-        p_crit = battle[8]
-        p_dodge = battle[9]
+            m_hp = battle[10]
+            m_damage = battle[11]
+            m_armor = battle[12]
+            m_tenacity = battle[13]
+            m_speed = battle[14]
+            m_crit = battle[15]
+            m_dodge = battle[16]
 
-        m_hp = battle[10]
-        m_damage = battle[11]
-        m_armor = battle[12]
-        m_tenacity = battle[13]
-        m_speed = battle[14]
-        m_crit = battle[15]
-        m_dodge = battle[16]
+            m_level = battle[17]
+            m_currency = battle[18]
+            m_exp_min = battle[19]
+            m_exp_max = battle[20]
+            m_modifier = battle[21]
+            loot_table_id = battle[22]
 
-        m_level = battle[17]
-        m_currency = battle[18]
-        m_exp_min = battle[19]
-        m_exp_max = battle[20]
-        m_modifier = battle[21]
-        loot_table_id = battle[22]
+            # Fetch the monster's base level from the DB for loot tier scaling
+            monster_id = battle[2]
+            raw_monster = await self.bot.db.get_monster(monster_id)
+            m_base_level = raw_monster[9] if raw_monster else 1
 
-        # Fetch the monster's base level from the DB for loot tier scaling
-        monster_id = battle[2]
-        raw_monster = await self.bot.db.get_monster(monster_id)
-        m_base_level = raw_monster[9] if raw_monster else 1
+            max_tenacity = m_tenacity
+            is_stunned = False
 
-        max_tenacity = m_tenacity
-        is_stunned = False
+            max_gauge = max(p_speed, m_speed)
 
-        max_gauge = max(p_speed, m_speed)
+            p_gauge = 0
+            m_gauge = 0
 
-        p_gauge = 0
-        m_gauge = 0
+            battle_log = []
 
-        battle_log = []
+            message = await ctx.send("⚔️ **Monster Battle Started**")
 
-        message = await ctx.send("⚔️ **Monster Battle Started**")
+            while p_hp > 0 and m_hp > 0:
 
-        while p_hp > 0 and m_hp > 0:
+                if p_gauge < max_gauge and m_gauge < max_gauge:
+                    p_gauge += p_speed
+                    m_gauge += m_speed
+                    continue
 
-            if p_gauge < max_gauge and m_gauge < max_gauge:
-                p_gauge += p_speed
-                m_gauge += m_speed
-                continue
+                actor = None
 
-            actor = None
+                if p_gauge >= max_gauge and m_gauge >= max_gauge:
+                    actor = 1 if p_gauge >= m_gauge else 2
+                elif p_gauge >= max_gauge:
+                    actor = 1
+                elif m_gauge >= max_gauge:
+                    actor = 2
 
-            if p_gauge >= max_gauge and m_gauge >= max_gauge:
-                actor = 1 if p_gauge >= m_gauge else 2
-            elif p_gauge >= max_gauge:
-                actor = 1
-            elif m_gauge >= max_gauge:
-                actor = 2
+                # PLAYER TURN
+                if actor == 1:
 
-            # PLAYER TURN
-            if actor == 1:
+                    p_gauge -= max_gauge
 
-                p_gauge -= max_gauge
-
-                if random.random() < m_dodge and not is_stunned:
-                    battle_log.append("👹 Monster **dodged** your attack")
-                else:
-
-                    base_damage = calculate_scaled_damage(p_damage, m_armor)
-                    damage = int(base_damage * random.uniform(0.8, 1.2))
-
-                    if is_stunned:
-                        damage *= 2
-                        is_stunned = False
-                        m_tenacity = max_tenacity
-                        battle_log.append("💫 Stunned monster took double damage!")
-
-                    if random.random() < p_crit:
-                        damage *= 2
-                        crit = "💥 **CRIT**"
-                    else:
-                        crit = ""
-
-                    m_hp -= damage
-
-                    battle_log.append(
-                        f"{ctx.author.mention} hits monster for **{damage}** {crit}"
-                    )
-
-                    if not is_stunned and max_tenacity > 0:
-                        m_tenacity -= p_break
-                        if m_tenacity <= 0:
-                            is_stunned = True
-                            m_tenacity = 0
-                            battle_log.append("💫 Monster's tenacity broke! It is **Stunned**!")
-
-                await asyncio.sleep(TURN_DELAY)
-
-            # MONSTER TURN
-            if actor == 2:
-
-                m_gauge -= max_gauge
-
-                if is_stunned:
-                    battle_log.append("💫 Monster is **Stunned** and skips its turn!")
-                else:
-                    if random.random() < p_dodge:
-                        battle_log.append("👟 You **dodged** the monster attack")
+                    if random.random() < m_dodge and not is_stunned:
+                        battle_log.append("👹 Monster **dodged** your attack")
                     else:
 
-                        base_damage = calculate_scaled_damage(m_damage, p_armor)
+                        base_damage = calculate_scaled_damage(p_damage, m_armor)
                         damage = int(base_damage * random.uniform(0.8, 1.2))
 
-                        if random.random() < m_crit:
+                        if is_stunned:
+                            damage *= 2
+                            is_stunned = False
+                            m_tenacity = max_tenacity
+                            battle_log.append("💫 Stunned monster took double damage!")
+
+                        if random.random() < p_crit:
                             damage *= 2
                             crit = "💥 **CRIT**"
                         else:
                             crit = ""
 
-                        p_hp -= damage
+                        m_hp -= damage
 
                         battle_log.append(
-                            f"👹 Monster hits you for **{damage}** {crit}"
+                            f"{ctx.author.mention} hits monster for **{damage}** {crit}"
                         )
 
-                await asyncio.sleep(TURN_DELAY)
+                        if not is_stunned and max_tenacity > 0:
+                            m_tenacity -= p_break
+                            if m_tenacity <= 0:
+                                is_stunned = True
+                                m_tenacity = 0
+                                battle_log.append("💫 Monster's tenacity broke! It is **Stunned**!")
+
+                    await asyncio.sleep(TURN_DELAY)
+
+                # MONSTER TURN
+                if actor == 2:
+
+                    m_gauge -= max_gauge
+
+                    if is_stunned:
+                        battle_log.append("💫 Monster is **Stunned** and skips its turn!")
+                    else:
+                        if random.random() < p_dodge:
+                            battle_log.append("👟 You **dodged** the monster attack")
+                        else:
+
+                            base_damage = calculate_scaled_damage(m_damage, p_armor)
+                            damage = int(base_damage * random.uniform(0.8, 1.2))
+
+                            if random.random() < m_crit:
+                                damage *= 2
+                                crit = "💥 **CRIT**"
+                            else:
+                                crit = ""
+
+                            p_hp -= damage
+
+                            battle_log.append(
+                                f"👹 Monster hits you for **{damage}** {crit}"
+                            )
+
+                    await asyncio.sleep(TURN_DELAY)
+
+                embed = discord.Embed(
+                    title="⚔️ Monster Battle",
+                    description="\n".join(battle_log[-6:]),
+                    color=discord.Color.dark_red()
+                )
+
+                player_stats = (
+                    f"❤️ HP: **{p_hp}**\n"
+                    f"⚔️ Damage: **{p_damage}**\n"
+                    f"🛡️ Armor: **{p_armor}**\n"
+                    f"💨 Speed: **{p_speed}**\n"
+                    f"⚡ Break: **{p_break}**\n"
+                    f"🎯 Crit: **{p_crit * 100:.1f}%**\n"
+                    f"👟 Dodge: **{p_dodge * 100:.1f}%**"
+                )
+
+                monster_stats = (
+                    f"❤️ HP: **{m_hp}**\n"
+                    f"⚔️ Damage: **{m_damage}**\n"
+                    f"🛡️ Armor: **{m_armor}**\n"
+                    f"💨 Speed: **{m_speed}**\n"
+                    f"🧱 Tenacity: **{m_tenacity}**\n"
+                    f"🎯 Crit: **{m_crit * 100:.1f}%**\n"
+                    f"👟 Dodge: **{m_dodge * 100:.1f}%**\n"
+                    f"🎖 Level: **{m_level}**\n"
+                )
+
+                embed.add_field(
+                    name=f"🧑 {ctx.author.display_name}",
+                    value=player_stats,
+                    inline=True
+                )
+
+                embed.add_field(
+                    name=f"👹 Monster ({m_modifier})",
+                    value=monster_stats,
+                    inline=True
+                )
+
+                await message.edit(embed=embed)
+
+                if p_hp <= 0 or m_hp <= 0:
+                    break
+
+            # ===== PLAYER LOST =====
+            if p_hp <= 0:
+                await self.bot.db.battle_logs.end_battle(battle_id, "lost")
+                battle_log.append("💀 You were defeated!")
+                player_data = await self.bot.db.get_player(player_id)
+                max_health = player_data[2]
+                await self.bot.db.players.update_current_health(player_id, max_health // 2)
+                self.death_cooldowns[player_id] = datetime.datetime.now() + datetime.timedelta(seconds=60)
+
+            # ===== PLAYER WON =====
+            else:
+                await self.bot.db.battle_logs.end_battle(battle_id, "won")
+                await self.bot.db.players.update_current_health(player_id, p_hp)
+                battle_log.append("🏆 You defeated the monster")
+
+                # Award EXP
+                exp_gained = random.randint(m_exp_min, m_exp_max)
+                
+                player_data_before = await self.bot.db.get_player(player_id)
+                level_before = player_data_before[13]
+                
+                leveled_up, new_level, total_ap_gained = await self.bot.db.add_exp(player_id, exp_gained)
+
+                player_data = await self.bot.db.get_player(player_id)
+                current_exp = player_data[14]
+                exp_needed = self.bot.db.players.exp_required(new_level + 1)
+
+                if leveled_up:
+                    levels_gained = new_level - level_before
+                    health_gain = levels_gained * 10
+                    damage_gain = levels_gained * 2
+                    armor_gain = sum(1 for lvl in range(level_before + 1, new_level + 1) if lvl % 2 == 0)
+                    speed_gain = sum(1 for lvl in range(level_before + 1, new_level + 1) if lvl % 5 == 0)
+                    
+                    stat_text = f"❤️ +{health_gain} HP | ⚔️ +{damage_gain} DMG"
+                    if armor_gain > 0:
+                        stat_text += f" | 🛡️ +{armor_gain} ARM"
+                    if speed_gain > 0:
+                        stat_text += f" | 💨 +{speed_gain} SPD"
+                    stat_text += f"\n💎 +{total_ap_gained} Ability Points"
+                    
+                    battle_log.append(f"**-----------------------------------\n⭐ LEVEL UP! You are now level {new_level}!\n{stat_text}\n-----------------------------------**")
+                else:
+                    battle_log.append(f"**-----------------------------------\n✨ You gained {exp_gained} EXP ({current_exp}/{exp_needed})\n-----------------------------------**")
+
+                # Roll loot — tier chances scale with how far above base level the monster is
+                drops = await self.bot.db.roll_loot(loot_table_id, m_modifier, m_level, m_base_level)
+
+                if drops or m_currency > 0:
+                    battle_log.append("🎁 **Drops:**")
+
+                    # Add currency as a drop
+                    if m_currency > 0:
+                        await self.bot.db.update_wallet(player_id, m_currency)
+                        battle_log.append(f"💰 {m_currency} 🪙")
+
+                    # Add item drops
+                    for drop in drops:
+                        item_id = drop["item_id"]
+                        tier = drop["tier"]
+                        amount = drop["amount"]
+                        name = drop["name"]
+                        emoji = drop["emoji"]
+
+                        await self.bot.db.add_to_inventory(
+                            player_id,
+                            item_id,
+                            tier,
+                            amount
+                        )
+
+                        tier_str = f"[{tier}] " if tier else ""
+                        battle_log.append(
+                            f"{emoji} {tier_str}{name} x{amount}"
+                        )
+                else:
+                    battle_log.append("😢 No items dropped")
 
             embed = discord.Embed(
-                title="⚔️ Monster Battle",
-                description="\n".join(battle_log[-6:]),
-                color=discord.Color.dark_red()
+                title="⚔️ Battle Finished",
+                description="\n".join(battle_log[-10:]),
+                color=discord.Color.gold()
             )
 
-            player_stats = (
-                f"❤️ HP: **{p_hp}**\n"
-                f"⚔️ Damage: **{p_damage}**\n"
-                f"🛡️ Armor: **{p_armor}**\n"
-                f"💨 Speed: **{p_speed}**\n"
-                f"⚡ Break: **{p_break}**\n"
-                f"🎯 Crit: **{p_crit * 100:.1f}%**\n"
-                f"👟 Dodge: **{p_dodge * 100:.1f}%**"
-            )
-
-            monster_stats = (
-                f"❤️ HP: **{m_hp}**\n"
-                f"⚔️ Damage: **{m_damage}**\n"
-                f"🛡️ Armor: **{m_armor}**\n"
-                f"💨 Speed: **{m_speed}**\n"
-                f"🧱 Tenacity: **{m_tenacity}**\n"
-                f"🎯 Crit: **{m_crit * 100:.1f}%**\n"
-                f"👟 Dodge: **{m_dodge * 100:.1f}%**\n"
-                f"🎖 Level: **{m_level}**\n"
-            )
-
-            embed.add_field(
-                name=f"🧑 {ctx.author.display_name}",
-                value=player_stats,
-                inline=True
-            )
-
-            embed.add_field(
-                name=f"👹 Monster ({m_modifier})",
-                value=monster_stats,
-                inline=True
-            )
-
+            embed.add_field(name="Player HP", value=f"{ctx.author.mention} ❤️ {max(0,p_hp)}")
+            embed.add_field(name="Monster HP", value=f"👹 ❤️ {max(0,m_hp)}")
+            
+            if p_hp > 0:
+                # embed.set_footer(text=f"Battle Won: {win_count}/10")
+                embed.set_footer(text=f"Battle Won: {win_count}")
             await message.edit(embed=embed)
-
-            if p_hp <= 0 or m_hp <= 0:
-                break
-
-        # ===== PLAYER LOST =====
-        if p_hp <= 0:
-
-            await self.bot.db.battle_logs.end_battle(battle_id, "lost")
-
-            battle_log.append("💀 You were defeated!")
-
-        # ===== PLAYER WON =====
-        else:
-
-            await self.bot.db.battle_logs.end_battle(battle_id, "won")
-
-            battle_log.append("🏆 You defeated the monster")
-
-            # Award EXP
-            exp_gained = random.randint(m_exp_min, m_exp_max)
-            
-            # Get level before adding exp
-            player_data_before = await self.bot.db.get_player(player_id)
-            level_before = player_data_before[13]
-            
-            leveled_up = await self.bot.db.add_exp(player_id, exp_gained)
-
-            player_data = await self.bot.db.get_player(player_id)
-            current_level = player_data[13]  # level column
-            current_exp = player_data[14]    # exp column
-            exp_needed = self.bot.db.players.exp_required(current_level + 1)
-
-            if leveled_up:
-                levels_gained = current_level - level_before
-                health_gain = levels_gained * 10
-                damage_gain = levels_gained * 2
-                armor_gain = sum(1 for lvl in range(level_before + 1, current_level + 1) if lvl % 2 == 0)
-                speed_gain = sum(1 for lvl in range(level_before + 1, current_level + 1) if lvl % 5 == 0)
-                ap_gain = levels_gained * 3
-                
-                stat_text = f"❤️ +{health_gain} HP | ⚔️ +{damage_gain} DMG"
-                if armor_gain > 0:
-                    stat_text += f" | 🛡️ +{armor_gain} ARM"
-                if speed_gain > 0:
-                    stat_text += f" | 💨 +{speed_gain} SPD"
-                stat_text += f"\n💎 +{ap_gain} Ability Points"
-                
-                battle_log.append(f"**-----------------------------------\n⭐ LEVEL UP! You are now level {current_level}!\n{stat_text}\n-----------------------------------**")
-            else:
-                battle_log.append(f"**-----------------------------------\n✨ You gained {exp_gained} EXP ({current_exp}/{exp_needed})\n-----------------------------------**")
-
-            # Roll loot — tier chances scale with how far above base level the monster is
-            drops = await self.bot.db.roll_loot(loot_table_id, m_modifier, m_level, m_base_level)
-
-            if drops or m_currency > 0:
-                battle_log.append("🎁 **Drops:**")
-
-                # Add currency as a drop
-                if m_currency > 0:
-                    await self.bot.db.update_wallet(player_id, m_currency)
-                    battle_log.append(f"💰 {m_currency} 🪙")
-
-                # Add item drops
-                for drop in drops:
-                    item_id = drop["item_id"]
-                    tier = drop["tier"]
-                    amount = drop["amount"]
-                    name = drop["name"]
-                    emoji = drop["emoji"]
-
-                    await self.bot.db.add_to_inventory(
-                        player_id,
-                        item_id,
-                        tier,
-                        amount
-                    )
-
-                    tier_str = f"[{tier}] " if tier else ""
-                    battle_log.append(
-                        f"{emoji} {tier_str}{name} x{amount}"
-                    )
-            else:
-                battle_log.append("😢 No items dropped")
-
-        embed = discord.Embed(
-            title="⚔️ Battle Finished",
-            description="\n".join(battle_log[-10:]),
-            color=discord.Color.gold()
-        )
-
-        embed.add_field(name="Player HP", value=f"{ctx.author.mention} ❤️ {max(0,p_hp)}")
-        embed.add_field(name="Monster HP", value=f"👹 ❤️ {max(0,m_hp)}")
-
-        await message.edit(embed=embed)
+        finally:
+            self.active_hunts.discard(ctx.author.id)
 
     @commands.command(name="monsterinfo", aliases=["mi"])
     async def monsterinfo(self, ctx, *, name: str = None):
@@ -465,7 +474,7 @@ class Hunt(commands.Cog):
                         item_info[item_id]["tiers"].append(item_tier)
 
                 # Calculate actual drop rate per item per roll
-                # Formula: sum over tiers of (tier_chance × (1/items_in_tier) × drop_chance)
+                # Formula: sum over tiers of (tier_chance × (1/items_in_tier) × data['drop_chance']
                 lines = []
                 for item_id, data in item_info.items():
                     tiers = data["tiers"]
@@ -476,7 +485,7 @@ class Hunt(commands.Cog):
                         for tier in tiers:
                             t_chance = tier_chances.get(tier, 0)
                             items_in_tier = tier_item_count.get(tier, 1)
-                            # P(this tier) × P(pick this item | tier) × P(drop | picked)
+                            # P(this tier) × P(pick this item | tier) × data['drop_chance']
                             actual_rate += t_chance * (1 / items_in_tier) * data['drop_chance']
 
                     lines.append(
@@ -492,6 +501,29 @@ class Hunt(commands.Cog):
 
     @commands.command()
     async def hunt(self, ctx):
+        now = datetime.datetime.now()
+        user_id = ctx.author.id
+
+        # Concurrency Check
+        if user_id in self.active_hunts:
+            return await ctx.send("You are already on a hunt! Please finish your current hunt first.")
+
+        # Death Cooldown Check
+        if user_id in self.death_cooldowns and now < self.death_cooldowns[user_id]:
+            remaining = self.death_cooldowns[user_id] - now
+            return await ctx.send(f"You are recovering from a recent defeat. You can hunt again in {remaining.seconds} seconds.")
+
+        # Rate Limit Check
+        self.hunt_wins[user_id] = deque(
+            [ts for ts in self.hunt_wins[user_id] if (now - ts) < datetime.timedelta(hours=1)],
+            # maxlen=10
+        )
+
+        # if len(self.hunt_wins[user_id]) >= 10:
+        #     return await ctx.send("You have hunted too many monsters recently. Please wait before hunting again.")
+
+        self.active_hunts.add(user_id)
+
         try:
             player = await self.bot.db.players.get_player(ctx.author.id)
             player_level = player[13]  # level column
@@ -550,10 +582,17 @@ class Hunt(commands.Cog):
 
             await ctx.send(f"👹 A **{monster[1]}** (Lv.**{monster[9]}**) appeared!")
 
-            asyncio.create_task(self.run_monster_battle(ctx, battle_id))
+            await self.run_monster_battle(ctx, battle_id, len(self.hunt_wins[user_id]) + 1)
+
+            # If the player won, add a timestamp to the win history
+            self.hunt_wins[user_id].append(datetime.datetime.now())
 
         except Exception as e:
             return await ctx.send(f"Error: {e}")
+
+        finally:
+            # Ensure the user is removed from the active hunts set, even if there's an error
+            self.active_hunts.discard(ctx.author.id)
 
 async def setup(bot):
     await bot.add_cog(Hunt(bot))
