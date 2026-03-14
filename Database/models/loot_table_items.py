@@ -79,11 +79,11 @@ class LootTableItemsDB:
     def get_tier_chances(self, modifier):
 
         TIER_DROP = {
-            "common": 0.67,
-            "uncommon": 0.18,
-            "rare": 0.1,
-            "epic": 0.04,
-            "legendary": 0.01
+            "common": 0.55,
+            "uncommon": 0.2,
+            "rare": 0.15,
+            "epic": 0.07,
+            "legendary": 0.03
         }
 
         MODIFIER_TIER_BONUS = {
