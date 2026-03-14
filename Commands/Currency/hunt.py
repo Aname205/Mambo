@@ -70,8 +70,10 @@ class Hunt(commands.Cog):
 
         m_level = battle[17]
         m_currency = battle[18]
-        m_modifier = battle[19]
-        loot_table_id = battle[20]
+        m_exp_min = battle[19]
+        m_exp_max = battle[20]
+        m_modifier = battle[21]
+        loot_table_id = battle[22]
 
         max_tenacity = m_tenacity
         is_stunned = False
@@ -227,20 +229,52 @@ class Hunt(commands.Cog):
 
             battle_log.append("🏆 You defeated the monster")
 
-            # Currency reward
-            await self.bot.db.update_wallet(player_id, m_currency)
+            # Award EXP
+            exp_gained = random.randint(m_exp_min, m_exp_max)
+            
+            # Get level before adding exp
+            player_data_before = await self.bot.db.get_player(player_id)
+            level_before = player_data_before[13]
+            
+            leveled_up = await self.bot.db.add_exp(player_id, exp_gained)
 
-            battle_log.append(f"**-----------------------------------\n💰 You gained {m_currency} 🪙\n----------------------------------**")
+            player_data = await self.bot.db.get_player(player_id)
+            current_level = player_data[13]  # level column
+            current_exp = player_data[14]    # exp column
+            exp_needed = self.bot.db.players.exp_required(current_level + 1)
+
+            if leveled_up:
+                levels_gained = current_level - level_before
+                health_gain = levels_gained * 10
+                damage_gain = levels_gained * 2
+                armor_gain = sum(1 for lvl in range(level_before + 1, current_level + 1) if lvl % 2 == 0)
+                speed_gain = sum(1 for lvl in range(level_before + 1, current_level + 1) if lvl % 5 == 0)
+                ap_gain = levels_gained * 3
+                
+                stat_text = f"❤️ +{health_gain} HP | ⚔️ +{damage_gain} DMG"
+                if armor_gain > 0:
+                    stat_text += f" | 🛡️ +{armor_gain} ARM"
+                if speed_gain > 0:
+                    stat_text += f" | 💨 +{speed_gain} SPD"
+                stat_text += f"\n💎 +{ap_gain} Ability Points"
+                
+                battle_log.append(f"**-----------------------------------\n⭐ LEVEL UP! You are now level {current_level}!\n{stat_text}\n-----------------------------------**")
+            else:
+                battle_log.append(f"**-----------------------------------\n✨ You gained {exp_gained} EXP ({current_exp}/{exp_needed})\n-----------------------------------**")
 
             # Roll loot
             drops = await self.bot.db.roll_loot(loot_table_id, m_modifier)
 
-            if drops:
-
+            if drops or m_currency > 0:
                 battle_log.append("🎁 **Drops:**")
 
-                for drop in drops:
+                # Add currency as a drop
+                if m_currency > 0:
+                    await self.bot.db.update_wallet(player_id, m_currency)
+                    battle_log.append(f"💰 {m_currency} 🪙")
 
+                # Add item drops
+                for drop in drops:
                     item_id = drop["item_id"]
                     tier = drop["tier"]
                     amount = drop["amount"]
@@ -258,7 +292,6 @@ class Hunt(commands.Cog):
                     battle_log.append(
                         f"{emoji} {tier_str}{name} x{amount}"
                     )
-
             else:
                 battle_log.append("😢 No items dropped")
 
@@ -425,8 +458,10 @@ class Hunt(commands.Cog):
                 monster[8],  # m_dodge
                 monster[9],  # m_level
                 monster[10], # m_currency
-                monster[11], # m_modifier
-                monster[12]  # m_loot_table_id
+                monster[11], # m_exp_min
+                monster[12], # m_exp_max
+                monster[13], # m_modifier
+                monster[14]  # m_loot_table_id
             )
 
             await ctx.send(f"👹 A **{monster[1]}** appeared!")

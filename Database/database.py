@@ -129,6 +129,12 @@ class Database:
     async def get_equipped_items(self, user_id):
         return await self.players.get_equipped_items(user_id)
 
+    async def add_exp(self, user_id, amount):
+        return await self.players.add_exp(user_id, amount)
+
+    async def exp_required(self, level):
+        return self.players.exp_required(level)
+
     # Equipment shortcuts
     async def add_equipment(
             self,
@@ -257,6 +263,8 @@ class Database:
             monster_dodge_chance,
             monster_level,
             monster_currency_reward,
+            monster_exp_min,
+            monster_exp_max,
             monster_modifier,
             monster_loot_table_id
     ):
@@ -279,6 +287,8 @@ class Database:
             monster_dodge_chance,
             monster_level,
             monster_currency_reward,
+            monster_exp_min,
+            monster_exp_max,
             monster_modifier,
             monster_loot_table_id
         )
