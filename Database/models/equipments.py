@@ -134,7 +134,6 @@ class EquipmentsDB:
                 ("Steel Armor", "🛡️", "armor", 80, 0, 14, 4, 0, 10000, 0, 0),
                 ("Crude Speed Gem", "💎", "accessory", 0, 0, 0, 3, 0, 1000, 0, 0),
                 ("Crude Blood Gem", "🔴", "accessory", 10, 0, 0, 0, 0, 1000, 0, 0),
-                ("Cheating Gem", "🔴", "accessory", 10000, 1000, 1000, 100, 1000, 10000000, 0.99, 0.99),
             ]
 
             TIERS = {
