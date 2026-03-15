@@ -11,7 +11,7 @@ class   EquipSelect(discord.ui.Select):
         options = []
 
         for eq in equipments:
-            affix_suffix = eq[17] if len(eq) > 17 else None
+            affix_suffix = eq[18] if len(eq) > 18 else None
             display_name = f"{eq[4]} {affix_suffix} {eq[2]}" if affix_suffix else f"{eq[4]} {eq[2]}"
             options.append(
                 discord.SelectOption(
@@ -73,7 +73,7 @@ class   EquipSelect(discord.ui.Select):
 
         equipments = [
             item for item in inventory
-            if item[9] == equipment_type
+            if item[10] == equipment_type
         ]
 
         # rebuild UI
@@ -87,7 +87,7 @@ class   EquipSelect(discord.ui.Select):
         self.parent_view.add_item(self.parent_view.accessory_button_1)
         self.parent_view.add_item(self.parent_view.accessory_button_2)
 
-        affix_suffix = equipment[17] if len(equipment) > 17 else None
+        affix_suffix = equipment[18] if len(equipment) > 18 else None
         display_name = f"{equipment[4]} {affix_suffix} {equipment[2]}" if affix_suffix else f"{equipment[4]} {equipment[2]}"
         message = f"**You have equipped {display_name} {equipment[3]}**"
         await interaction.response.edit_message(
@@ -230,7 +230,7 @@ class StatusView(discord.ui.View):
         # Filter inventory
         equipments = [
             item for item in self.inventory
-            if item[9] == equipment_type
+            if item[10] == equipment_type
         ]
 
         if not equipments:

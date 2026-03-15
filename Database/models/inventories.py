@@ -40,6 +40,7 @@ class InventoriesDB:
                     fi.price,
                     COALESCE(em.price, mi.price) AS market_price,
                     inv.is_lock,
+                    inv.is_equipped,
                     em.equipment_type,
                     em.health,
                     em.damage,
@@ -148,7 +149,8 @@ class InventoriesDB:
             await cursor.execute(""" 
                 DELETE FROM inventories 
                 WHERE user_id = ? 
-                AND is_lock = 0""", (user_id,)
+                AND is_lock = 0
+                AND is_equipped = 0""", (user_id,)
             )
             await self.db.commit()
 
