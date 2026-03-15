@@ -11,9 +11,11 @@ class   EquipSelect(discord.ui.Select):
         options = []
 
         for eq in equipments:
+            affix_suffix = eq[17] if len(eq) > 17 else None
+            display_name = f"{eq[4]} {affix_suffix} {eq[2]}" if affix_suffix else f"{eq[4]} {eq[2]}"
             options.append(
                 discord.SelectOption(
-                    label=f"{eq[4]} {eq[2]}",
+                    label=display_name,
                     value=str(eq[0]),
                     emoji=eq[3]
                 )
@@ -41,11 +43,16 @@ class   EquipSelect(discord.ui.Select):
             None
         )
 
-        await self.parent_view.bot.db.players.equip_item(
+        result = await self.parent_view.bot.db.players.equip_item(
             interaction.user.id,
             inv_id,
             slot
         )
+
+        if result == "not_found":
+            return await interaction.response.send_message("❌ Item not found in your inventory.", ephemeral=True)
+        if result == "already_equipped":
+            return await interaction.response.send_message("❌ This item is already equipped in another slot.", ephemeral=True)
 
         # Refresh player stats
         player = await self.parent_view.bot.db.get_player(interaction.user.id)
@@ -80,14 +87,16 @@ class   EquipSelect(discord.ui.Select):
         self.parent_view.add_item(self.parent_view.accessory_button_1)
         self.parent_view.add_item(self.parent_view.accessory_button_2)
 
-        message = f"**You have equipped {equipment[4]} {equipment[2]} {equipment[3]}**"
+        affix_suffix = equipment[17] if len(equipment) > 17 else None
+        display_name = f"{equipment[4]} {affix_suffix} {equipment[2]}" if affix_suffix else f"{equipment[4]} {equipment[2]}"
+        message = f"**You have equipped {display_name} {equipment[3]}**"
         await interaction.response.edit_message(
             embed=self.parent_view.update_embed(message),
             view=self.parent_view
         )
 
 class StatusView(discord.ui.View):
-    def __init__(self, bot ,user, player, inventory, equipped_items):
+    def __init__(self, bot, user, player, inventory, equipped_items, weapon_affix=None):
         super().__init__(timeout=30)
 
         self.bot = bot
@@ -95,6 +104,7 @@ class StatusView(discord.ui.View):
         self.player = player
         self.inventory = inventory
         self.equipped_items = equipped_items
+        self.weapon_affix = weapon_affix  # affix_suffix string for equipped weapon, e.g. "Poisonous"
         self.slot = None
 
     def update_embed(self, message=None):
@@ -186,7 +196,7 @@ class StatusView(discord.ui.View):
         if not eq:
             return "□"
 
-        inv_id, item_id, name, emoji, tier, _, _, _, eq_type, health, dmg, armor, speed, break_force, crit, dodge = eq
+        inv_id, item_id, name, emoji, tier, _, _, _, eq_type, health, dmg, armor, speed, break_force, crit, dodge, affix_suffix = eq
 
         if health:
             eqs.append(f"❤️ **{health}**")
@@ -203,7 +213,8 @@ class StatusView(discord.ui.View):
         if dodge:
             eqs.append(f"👟 **{dodge * 100:.0f}%**")
         eqst = " ".join(eqs)
-        return f"**{tier} {name} {emoji}**\n{eqst}"
+        display_name = f"{tier} {affix_suffix} {name}" if affix_suffix else f"{tier} {name}"
+        return f"**{display_name} {emoji}**\n{eqst}"
 
     def find_item(self, eq_id):
         return next((i for i in self.inventory if i[0] == eq_id), None)
