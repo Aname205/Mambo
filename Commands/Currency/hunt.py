@@ -5,6 +5,11 @@ import random
 import datetime
 from collections import defaultdict, deque
 
+from Commands.Currency.effect_handler import (
+    BattleState, apply_on_hit_passives, apply_dot_passives,
+    apply_frost_damage_bonus, tick_frost, tick_dot, tick_corrosion
+)
+
 TURN_DELAY = 1
 
 
@@ -150,6 +155,18 @@ class Hunt(commands.Cog):
 
             battle_log = []
 
+            # --- Load weapon passives ---
+            weapon_passives = []
+            rows = await self.bot.db.get_passives_for_equipped_weapon(player_id)
+            weapon_passives = [r[2] for r in rows]  # r[2] = effect name
+
+            # --- Init BattleState ---
+            state = BattleState(
+                p_hp=p_hp, p_max_hp=p_hp, p_damage=p_damage,
+                m_hp=m_hp, m_max_hp=m_hp, m_armor=m_armor,
+                m_speed=m_speed, m_gauge=0, max_gauge=max_gauge
+            )
+
             message = await ctx.send("⚔️ **Monster Battle Started**")
 
             while p_hp > 0 and m_hp > 0:
@@ -173,12 +190,18 @@ class Hunt(commands.Cog):
 
                     p_gauge -= max_gauge
 
-                    if random.random() < m_dodge and not is_stunned:
+                    # Skip turn penalty (overcharge)
+                    if state.skip_next_turn:
+                        state.skip_next_turn = False
+                        battle_log.append("⚠️ **Overcharge** backfired — you lose your turn!")
+                    elif random.random() < m_dodge and not is_stunned:
                         battle_log.append("👹 Monster **dodged** your attack")
                     else:
-
                         base_damage = calculate_scaled_damage(p_damage, m_armor)
                         damage = int(base_damage * random.uniform(0.8, 1.2))
+
+                        # Frost bonus
+                        damage = apply_frost_damage_bonus(state, damage)
 
                         if is_stunned:
                             damage *= 2
@@ -190,11 +213,31 @@ class Hunt(commands.Cog):
                         else:
                             crit = ""
 
+                        # Sync state before passives
+                        state.p_hp = p_hp
+                        state.m_hp = m_hp
+                        state.m_armor = m_armor
+                        state.m_gauge = m_gauge
+                        state.m_speed = m_speed
+
+                        # Apply on-hit passives
+                        damage, passive_logs = apply_on_hit_passives(
+                            state, damage, int(base_damage), weapon_passives
+                        )
+
+                        # Sync back
+                        p_hp = state.p_hp
+                        m_hp = state.m_hp
+                        m_armor = state.m_armor
+                        m_gauge = state.m_gauge
+                        m_speed = state.m_speed
+
                         m_hp -= damage
 
-                        battle_log.append(
-                            f"{ctx.author.mention} hits monster for **{damage}** {crit}"
-                        )
+                        hit_msg = f"{ctx.author.mention} hits monster for **{damage}** {crit}"
+                        if passive_logs:
+                            hit_msg += " | " + " | ".join(passive_logs)
+                        battle_log.append(hit_msg)
 
                         if not is_stunned and max_tenacity > 0:
                             m_tenacity -= p_break
@@ -210,13 +253,38 @@ class Hunt(commands.Cog):
 
                     m_gauge -= max_gauge
 
+                    # Collect DoT and frost logs to append after monster action
+                    turn_suffix = ""
+                    if weapon_passives:
+                        state.p_hp = p_hp
+                        state.m_hp = m_hp
+                        dot_logs = apply_dot_passives(state, weapon_passives)
+                        p_hp = state.p_hp
+                        m_hp = state.m_hp
+                        frost_log = tick_frost(state)
+                        m_speed = state.m_speed
+                        dot_tick_logs = tick_dot(state)
+                        corrosion_log = tick_corrosion(state)
+                        m_armor = state.m_armor
+                        all_suffix = (
+                            dot_logs
+                            + ([frost_log] if frost_log else [])
+                            + dot_tick_logs
+                            + ([corrosion_log] if corrosion_log else [])
+                        )
+                        if all_suffix:
+                            turn_suffix = " | " + " | ".join(all_suffix)
+
                     if is_stunned:
                         is_stunned = False
                         m_tenacity = max_tenacity
-                        battle_log.append("💫 Monster is **Stunned** and skips its turn!")
+                        battle_log.append(f"💫 Monster is **Stunned** and skips its turn!{turn_suffix}")
+                    elif state.stun_turns_left > 0:
+                        state.stun_turns_left -= 1
+                        battle_log.append(f"💥 Monster is **Stunned** by passive and skips its turn!{turn_suffix}")
                     else:
                         if random.random() < p_dodge:
-                            battle_log.append("👟 You **dodged** the monster attack")
+                            battle_log.append(f"👟 You **dodged** the monster attack{turn_suffix}")
                         else:
 
                             base_damage = calculate_scaled_damage(m_damage, p_armor)
@@ -231,7 +299,7 @@ class Hunt(commands.Cog):
                             p_hp -= damage
 
                             battle_log.append(
-                                f"👹 Monster hits you for **{damage}** {crit}"
+                                f"👹 Monster hits you for **{damage}** {crit}{turn_suffix}"
                             )
 
                     await asyncio.sleep(TURN_DELAY)

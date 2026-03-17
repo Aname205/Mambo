@@ -1,7 +1,8 @@
 import aiosqlite
 from Database.models import (BalanceDB, ItemsDB, FishingItemsDB, InventoriesDB, LotteriesDB,
                              LotteryPlayersDB, MarketItemsDB, PlayersDB, EquipmentsDB,
-                             MonsterDB, BattleLogsDB, PvpLogsDB, LootTablesDB, LootTableItemsDB)
+                             MonsterDB, BattleLogsDB, PvpLogsDB, LootTablesDB, LootTableItemsDB,
+                             PassivesDB, ItemPassivesDB)
 
 
 class Database:
@@ -22,6 +23,8 @@ class Database:
         self.pvp_logs = None
         self.loot_tables = None
         self.loot_table_items = None
+        self.passives = None
+        self.item_passives = None
 
     async def connect(self):
         self.db = await aiosqlite.connect("../database.db")
@@ -44,6 +47,8 @@ class Database:
         self.pvp_logs = PvpLogsDB(self.db)
         self.loot_tables = LootTablesDB(self.db)
         self.loot_table_items = LootTableItemsDB(self.db)
+        self.passives = PassivesDB(self.db)
+        self.item_passives = ItemPassivesDB(self.db)
 
         # Create tables
         await self.balance.create_table()
@@ -60,6 +65,8 @@ class Database:
         await self.pvp_logs.create_table()
         await self.loot_tables.create_table()
         await self.loot_table_items.create_table()
+        await self.passives.create_table()
+        await self.item_passives.create_table()
 
     # ============ SHORTCUT METHODS (để không cần sửa code cũ) ============
     async def get_balance(self, user_id):
@@ -409,5 +416,37 @@ class Database:
 
     async def roll_loot(self, loot_table_id, modifier, monster_level=1, monster_base_level=1):
         return await self.loot_table_items.roll_loot(loot_table_id, modifier, monster_level, monster_base_level)
+
+    # Passives shortcuts
+    async def add_passive(self, effect, emoji, affix_suffix, equipment_type):
+        return await self.passives.add_passive(effect, emoji, affix_suffix, equipment_type)
+
+    async def get_passive(self, passive_id):
+        return await self.passives.get_passive(passive_id)
+
+    async def get_passives_by_type(self, equipment_type):
+        return await self.passives.get_passives_by_type(equipment_type)
+
+    async def get_all_passives(self):
+        return await self.passives.get_all_passives()
+
+    async def ensure_passives(self):
+        return await self.passives.ensure_passives()
+
+    # Item passives shortcuts
+    async def add_item_passive(self, inventory_id, passive_id):
+        return await self.item_passives.add_item_passive(inventory_id, passive_id)
+
+    async def get_passives_for_item(self, inventory_id):
+        return await self.item_passives.get_passives_for_item(inventory_id)
+
+    async def get_passives_for_equipped_weapon(self, user_id):
+        return await self.item_passives.get_passives_for_equipped_weapon(user_id)
+
+    async def remove_item_passive(self, item_passive_id):
+        return await self.item_passives.remove_item_passive(item_passive_id)
+
+    async def remove_all_passives_for_item(self, inventory_id):
+        return await self.item_passives.remove_all_passives_for_item(inventory_id)
 
 

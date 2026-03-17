@@ -18,6 +18,8 @@ class OnReady(commands.Cog):
             print("Equipments generated")
             await self.bot.db.ensure_monsters()
             print("Monsters generated")
+            await self.bot.db.ensure_passives()
+            print("Passives seeded")
         except Exception as e:
             print(e)
 
