@@ -171,7 +171,9 @@ LOOT_DATA = {
     ],
 
     "Crystal Guardian": [
-
+        ("Energy Crystal", 0.6, 1, 1),
+        ("Crystal Halberd", 0.6, 1, 1),
+        ("Crystal Guard", 0.6, 1, 1),
     ],
 
     "Void Reaper": [
@@ -179,11 +181,13 @@ LOOT_DATA = {
     ],
 
     "Ancient Lich": [
-
+        ("Lich Staff", 0.6, 1, 1),
+        ("Phylactery", 0.6, 1, 1),
     ],
 
     "Frost Titan": [
-
+        ("Frozen Colossus Axe", 0.6, 1, 1),
+        ("Frozen Titan Armor", 0.6, 1, 1),
     ],
 
     "Abyss Overlord": [
@@ -422,4 +426,9 @@ LOOT_DATA = {
     "Solar Siren": [
         ("Siren Lyre", 0.6, 1, 1),
     ],
+
+    # BOSS
+    "Arthropleura": [
+        ("Ring Of The Scale", 1, 1, 1)
+    ]
 }

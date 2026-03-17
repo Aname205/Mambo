@@ -343,7 +343,7 @@ class MonsterDB:
                 new_tenacity = int(tenacity * mult["tenacity"])
 
                 new_crit = round(crit * mult["crit"], 4)
-                new_dodge = round(dodge * mult["dodge"], 4)
+                new_dodge = min(0.90, round(dodge * mult["dodge"], 4))
 
                 new_reward = int(reward * mult["reward"])
                 new_exp_min = int(exp_min * mult["exp"])

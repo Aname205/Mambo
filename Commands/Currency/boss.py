@@ -8,6 +8,9 @@ TURN_DELAY = 1
 
 def calculate_scaled_damage(attack, defense):
     """Common mitigation formula: atk * (100 / (100 + def))."""
+    if defense > 60:
+        # Diminishing returns: every point above 60 is worth less.
+        defense = 60 + (defense - 60) ** 0.8
     denom = 100 + max(0, defense)
     return max(0.0, attack * (100 / denom))
 
@@ -94,8 +97,6 @@ class Boss(commands.Cog):
 
                     if is_stunned:
                         damage *= 2
-                        is_stunned = False
-                        m_tenacity = max_tenacity
                         battle_log.append("💫 Stunned Boss took double damage!")
 
                     if random.random() < p_crit:
@@ -124,6 +125,8 @@ class Boss(commands.Cog):
                 m_gauge -= max_gauge
 
                 if is_stunned:
+                    is_stunned = False
+                    m_tenacity = max_tenacity
                     battle_log.append("💫 Boss is **Stunned** and skips its turn!")
                 else:
                     if random.random() < p_dodge:
@@ -287,6 +290,7 @@ class Boss(commands.Cog):
         await message.edit(embed=embed)
 
     @commands.command()
+    @commands.cooldown(1, 28800, commands.BucketType.user)
     async def boss(self, ctx):
         try:
             player = await self.bot.db.players.get_player(ctx.author.id)
@@ -352,7 +356,19 @@ class Boss(commands.Cog):
             asyncio.create_task(self.run_boss_battle(ctx, battle_id))
 
         except Exception as e:
+            # If an error happens before the battle starts, we should probably reset the cooldown
+            # but for now we'll just report it.
             return await ctx.send(f"Error: {e}")
+
+    @boss.error
+    async def boss_error(self, ctx, error):
+        if isinstance(error, commands.CommandOnCooldown):
+            hours, rem = divmod(error.retry_after, 3600)
+            minutes, seconds = divmod(rem, 60)
+            time_str = f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
+            await ctx.send(f"⏳ **Boss Cooldown**\nYou can challenge the boss again in **{time_str}**.")
+        else:
+            await ctx.send(f"An error occurred: {error}")
 
     @commands.command(name="bossreset")
     async def bossreset(self, ctx):

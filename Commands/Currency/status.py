@@ -3,24 +3,49 @@ from discord.ext import commands
 
 class   EquipSelect(discord.ui.Select):
 
-    def __init__(self, view, equipments):
-
+    def __init__(self, view, equipments, current_eq=None):
         self.parent_view = view
         self.equipments = equipments
 
         options = []
-
         for eq in equipments:
+            deltas = []
+            if current_eq:
+                # Comparison: Inventory (indices 10-16) vs Equipped (indices 9-15)
+                stats_map = [
+                    (10, 9, "❤️"), (11, 10, "⚔️"), (12, 11, "🛡️"),
+                    (13, 12, "💨"), (14, 13, "⚡")
+                ]
+                for inv_idx, eq_idx, emoji in stats_map:
+                    diff = (eq[inv_idx] or 0) - (current_eq[eq_idx] or 0)
+                    if diff != 0:
+                        deltas.append(f"{emoji}{'+' if diff > 0 else ''}{int(diff) if inv_idx < 13 else round(diff, 1)}")
+                
+                # Crit/Dodge deltas
+                for inv_idx, eq_idx, emoji in [(15, 14, "🎯"), (16, 15, "👟")]:
+                    diff = (eq[inv_idx] or 0) - (current_eq[eq_idx] or 0)
+                    if diff != 0:
+                        deltas.append(f"{emoji}{'+' if diff > 0 else ''}{diff*100:.1f}%")
+            else:
+                # No current equipment, just show item's base stats
+                stats_indices = [(10, "❤️"), (11, "⚔️"), (12, "🛡️"), (13, "💨"), (14, "⚡")]
+                for idx, emoji in stats_indices:
+                    val = eq[idx] or 0
+                    if val: deltas.append(f"{emoji}{int(val) if idx < 13 else round(val,1)}")
+                if eq[15]: deltas.append(f"🎯{eq[15]*100:.1f}%")
+                if eq[16]: deltas.append(f"👟{eq[16]*100:.1f}%")
+
             options.append(
                 discord.SelectOption(
                     label=f"{eq[4]} {eq[2]}",
                     value=str(eq[0]),
-                    emoji=eq[3]
+                    emoji=eq[3],
+                    description=" | ".join(deltas) if deltas else "No stat changes"
                 )
             )
 
         super().__init__(
-            placeholder="Choose equipment",
+            placeholder="Choose equipment to swap",
             options=options,
             min_values=1,
             max_values=1
@@ -41,6 +66,9 @@ class   EquipSelect(discord.ui.Select):
             None
         )
 
+        # Save old stats to calculate delta
+        old_player = self.parent_view.player
+
         await self.parent_view.bot.db.players.equip_item(
             interaction.user.id,
             inv_id,
@@ -59,6 +87,34 @@ class   EquipSelect(discord.ui.Select):
         equipped_items = await self.parent_view.bot.db.get_equipped_items(interaction.user.id)
         self.parent_view.equipped_items = equipped_items
 
+        # Calculate deltas
+        deltas = []
+        stats_config = [
+            (2, "❤️"),      # Health
+            (3, "⚔️"),      # Damage
+            (4, "🛡️"),      # Armor
+            (5, "💨"),      # Speed
+            (6, "⚡"),      # Break Force
+            (7, "🎯"),      # Crit
+            (8, "👟")       # Dodge
+        ]
+
+        for idx, emoji in stats_config:
+            old_val = old_player[idx] or 0
+            new_val = player[idx] or 0
+            diff = new_val - old_val
+            
+            if diff != 0:
+                # Format based on stat type
+                if idx in (7, 8): # Crit, Dodge
+                    diff_str = f"{'+' if diff > 0 else ''}{diff*100:.1f}%"
+                elif idx in (5, 6): # Speed, Break
+                    diff_str = f"{'+' if diff > 0 else ''}{diff:.1f}"
+                else: # Health, Damage, Armor
+                    diff_str = f"{'+' if diff > 0 else ''}{int(diff)}"
+                
+                deltas.append(f"{emoji} {diff_str}")
+
         # Rebuild equipment list for the slot
         equipment_type = slot
         if slot in ["accessory_1", "accessory_2"]:
@@ -73,14 +129,25 @@ class   EquipSelect(discord.ui.Select):
         self.parent_view.clear_items()
 
         if equipments:
-            self.parent_view.add_item(EquipSelect(self.parent_view, equipments))
+            # Get current equipment for the slot after swap to update the select deltas
+            weapon, armor, acc1, acc2 = equipped_items
+            current_eq = None
+            if slot == "weapon": current_eq = weapon
+            elif slot == "armor": current_eq = armor
+            elif slot == "accessory_1": current_eq = acc1
+            elif slot == "accessory_2": current_eq = acc2
+            
+            self.parent_view.add_item(EquipSelect(self.parent_view, equipments, current_eq))
 
         self.parent_view.add_item(self.parent_view.weapon_button)
         self.parent_view.add_item(self.parent_view.armor_button)
         self.parent_view.add_item(self.parent_view.accessory_button_1)
         self.parent_view.add_item(self.parent_view.accessory_button_2)
 
-        message = f"**You have equipped {equipment[4]} {equipment[2]} {equipment[3]}**"
+        message = f"Equipped {equipment[4]} {equipment[2]} {equipment[3]}"
+        if deltas:
+            message += f" ({' | '.join(deltas)})"
+            
         await interaction.response.edit_message(
             embed=self.parent_view.update_embed(message),
             view=self.parent_view
@@ -227,7 +294,14 @@ class StatusView(discord.ui.View):
             await interaction.response.edit_message(embed=self.update_embed(message),view=self)
             return
 
-        select = EquipSelect(self, equipments)
+        weapon, armor, accessory_1, accessory_2 = self.equipped_items
+        current_eq = None
+        if slot == "weapon": current_eq = weapon
+        elif slot == "armor": current_eq = armor
+        elif slot == "accessory_1": current_eq = accessory_1
+        elif slot == "accessory_2": current_eq = accessory_2
+
+        select = EquipSelect(self, equipments, current_eq)
 
         self.clear_items()
         self.add_item(select)

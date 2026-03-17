@@ -8,6 +8,9 @@ TURN_DELAY = 1
 
 def calculate_scaled_damage(attack, defense):
     """Common mitigation formula: atk * (100 / (100 + def))."""
+    if defense > 60:
+        # Diminishing returns: every point above 60 is worth less.
+        defense = 60 + (defense - 60) ** 0.8
     denom = 100 + max(0, defense)
     return max(0.0, attack * (100 / denom))
 

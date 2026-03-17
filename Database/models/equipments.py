@@ -154,7 +154,7 @@ class EquipmentsDB:
                     "armor_mult": 1.4,
                     "speed_mult": 1.3,
                     "break_force_mult": 1.1,
-                    "price_mult": 2,
+                    "price_mult": 1.5,
                     "critical_chance_mult": 1.2,
                     "dodge_chance_mult": 1.2
                 },
@@ -165,7 +165,7 @@ class EquipmentsDB:
                     "armor_mult": 1.8,
                     "speed_mult": 1.6,
                     "break_force_mult": 1.2,
-                    "price_mult": 3,
+                    "price_mult": 2,
                     "critical_chance_mult": 1.4,
                     "dodge_chance_mult": 1.4
                 },
@@ -175,10 +175,10 @@ class EquipmentsDB:
                     "damage_mult": 3.0,
                     "armor_mult": 2.5,
                     "speed_mult": 2.0,
-                    "break_force_mult": 2.0,
-                    "price_mult": 5,
-                    "critical_chance_mult": 1.8,
-                    "dodge_chance_mult": 1.8
+                    "break_force_mult": 1.8,
+                    "price_mult": 3,
+                    "critical_chance_mult": 1.6,
+                    "dodge_chance_mult": 1.6
                 },
 
                 "legendary": {
@@ -187,7 +187,7 @@ class EquipmentsDB:
                     "armor_mult": 3.5,
                     "speed_mult": 3.0,
                     "break_force_mult": 3.0,
-                    "price_mult": 20,
+                    "price_mult": 8,
                     "critical_chance_mult": 2.5,
                     "dodge_chance_mult": 2.5
                 }

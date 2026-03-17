@@ -40,7 +40,7 @@ def scale_monster_to_player(monster, player_level):
     m[6]  = max(1, int(monster[6]  * stat_mult))   # speed
     # crit/dodge are capped at sensible maximums
     m[7]  = min(0.75, round(monster[7]  * (1 + (ratio - 1) * 0.05), 4))  # crit
-    m[8]  = min(0.60, round(monster[8]  * (1 + (ratio - 1) * 0.05), 4))  # dodge
+    m[8]  = min(0.90, round(monster[8]  * (1 + (ratio - 1) * 0.05), 4))  # dodge
     
     # Calculate modifier bonus to just layer onto the final displayed level
     modifier = monster[13] if len(monster) > 13 else "normal"
@@ -61,6 +61,9 @@ def scale_monster_to_player(monster, player_level):
 
 def calculate_scaled_damage(attack, defense):
     """Common mitigation formula: atk * (100 / (100 + def))."""
+    if defense > 60:
+        # Diminishing returns: every point above 60 is worth less.
+        defense = 60 + (defense - 60) ** 0.8
     denom = 100 + max(0, defense)
     return max(0.0, attack * (100 / denom))
 
@@ -179,8 +182,6 @@ class Hunt(commands.Cog):
 
                         if is_stunned:
                             damage *= 2
-                            is_stunned = False
-                            m_tenacity = max_tenacity
                             battle_log.append("💫 Stunned monster took double damage!")
 
                         if random.random() < p_crit:
@@ -210,6 +211,8 @@ class Hunt(commands.Cog):
                     m_gauge -= max_gauge
 
                     if is_stunned:
+                        is_stunned = False
+                        m_tenacity = max_tenacity
                         battle_log.append("💫 Monster is **Stunned** and skips its turn!")
                     else:
                         if random.random() < p_dodge:
