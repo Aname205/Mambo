@@ -3,6 +3,15 @@ import discord
 import discord.ext.commands as commands
 import asyncio
 
+REWARD_MULTIPLIER = {
+    1: 20,
+    2: 10,
+    3: 5,
+    4: 3,
+    5: 2,
+    6: 1
+}
+
 # Show Wordle board
 def build_board(guesses):
     rows = []
@@ -143,9 +152,9 @@ class Wordle(commands.Cog):
             return
 
         if guess not in self.answers:
-            await message.channel.send(f"❌ {guess} is not a word!")
-            await asyncio.sleep(2)
-            await message.delete()
+            msg = await message.channel.send(f"❌ {guess} is not a word!")
+            await asyncio.sleep(7)
+            await msg.delete()
             return
 
 
@@ -186,7 +195,21 @@ class Wordle(commands.Cog):
 
         # Display game result
         if guess == word:
-            await message.channel.send(f"You win! The word was **{word.upper()}**")
+            attempts = game["attempts"]
+            multiplier = REWARD_MULTIPLIER.get(attempts, 1)
+            reward = 100 * multiplier
+
+            try:
+                await self.bot.db.update_wallet(user_id, reward)
+            except Exception as e:
+                print("Wallet update error:", e)
+
+            await message.channel.send(
+                f"🎉 You win! The word was **{word.upper()}**\n"
+                f"💰 Reward: **{reward} coins** (x{multiplier})\n"
+                f"🧠 Attempts: **{attempts}/6**"
+            )
+
             del self.active_games[user_id]
             return
 
