@@ -80,9 +80,6 @@ class Wordle(commands.Cog):
         with open("../answers.txt") as f:
             self.answers = [w.strip().lower() for w in f.readlines()]
 
-        with open("../words.txt") as f:
-            self.words = [w.strip().lower() for w in f.readlines()]
-
     @commands.command()
     async def wordle(self, ctx):
         # Check active user in game
@@ -144,11 +141,13 @@ class Wordle(commands.Cog):
 
         if len(guess) != 5 or not guess.isalpha():
             return
-        
-        if guess not in self.words and guess not in self.answers:
+
+        if guess not in self.answers:
             await message.channel.send(f"❌ {guess} is not a word!")
-            await asyncio.sleep(5)
+            await asyncio.sleep(2)
             await message.delete()
+            return
+
 
         # Retrieve the current game state
         game = self.active_games[user_id]
