@@ -1,6 +1,7 @@
 import random
 import discord
 import discord.ext.commands as commands
+import asyncio
 
 # Show Wordle board
 def build_board(guesses):
@@ -75,9 +76,12 @@ class Wordle(commands.Cog):
         self.bot = bot
         self.active_games = {}
 
-        # Open words file
-        with open("../wordle.txt") as f:
-            self.words = [w.strip() for w in f.readlines()]
+        # Open word answers file
+        with open("../answers.txt") as f:
+            self.answers = [w.strip().lower() for w in f.readlines()]
+
+        with open("../words.txt") as f:
+            self.words = [w.strip().lower() for w in f.readlines()]
 
     @commands.command()
     async def wordle(self, ctx):
@@ -88,7 +92,7 @@ class Wordle(commands.Cog):
             await ctx.send("You are already in a Wordle game!")
             return
 
-        word = random.choice(self.words)
+        word = random.choice(self.answers)
 
         # Create embed
         embed = discord.Embed(
@@ -140,6 +144,11 @@ class Wordle(commands.Cog):
 
         if len(guess) != 5 or not guess.isalpha():
             return
+        
+        if guess not in self.words and guess not in self.answers:
+            await message.channel.send(f"❌ {guess} is not a word!")
+            await asyncio.sleep(5)
+            await message.delete()
 
         # Retrieve the current game state
         game = self.active_games[user_id]
@@ -178,12 +187,12 @@ class Wordle(commands.Cog):
 
         # Display game result
         if guess == word:
-            await message.channel.send(f"You win! The word was **{word}**")
+            await message.channel.send(f"You win! The word was **{word.upper()}**")
             del self.active_games[user_id]
             return
 
         if game["attempts"] >= 6:
-            await message.channel.send(f"You lose :(\n The word was **{word}**")
+            await message.channel.send(f"You lose :(\n The word was **{word.upper()}**")
             del self.active_games[user_id]
 
     @commands.command()
