@@ -3,11 +3,6 @@ from discord.ext import commands
 import random
 import asyncio
 
-from Commands.Currency.effect_handler import (
-    BattleState, apply_on_hit_passives, apply_dot_passives,
-    apply_frost_damage_bonus, tick_frost, tick_dot, tick_corrosion
-)
-
 TURN_DELAY = 1
 
 
@@ -39,7 +34,7 @@ def scale_monster_to_player(monster, player_level):
     m[5]  = max(0, int(monster[5]  * stat_mult))   # tenacity
     m[6]  = max(1, int(monster[6]  * stat_mult))   # speed
     m[7]  = min(0.75, round(monster[7] * (1 + (ratio - 1) * 0.05), 4))  # crit
-    m[8]  = min(0.90, round(monster[8] * (1 + (ratio - 1) * 0.05), 4))  # dodge
+    m[8]  = min(0.60, round(monster[8] * (1 + (ratio - 1) * 0.05), 4))  # dodge
     
     # Calculate modifier bonus to just layer onto the final displayed level
     modifier = monster[13] if len(monster) > 13 else "normal"
@@ -59,9 +54,6 @@ def scale_monster_to_player(monster, player_level):
 
 
 def calculate_scaled_damage(attack, defense):
-    if defense > 60:
-        # Diminishing returns: every point above 60 is worth less.
-        defense = 60 + (defense - 60) ** 0.8
     denom = 100 + max(0, defense)
     return max(0.0, attack * (100 / denom))
 
@@ -485,18 +477,6 @@ class DungeonGame(commands.Cog):
 
         battle_log = []
 
-        # --- Load weapon passives ---
-        weapon_passives = []
-        rows = await self.bot.db.get_passives_for_equipped_weapon(player_id)
-        weapon_passives = [r[2] for r in rows]  # r[2] = effect name
-
-        # --- Init BattleState ---
-        state = BattleState(
-            p_hp=p_hp, p_max_hp=p_hp, p_damage=p_damage,
-            m_hp=m_hp, m_max_hp=m_hp, m_armor=m_armor,
-            m_speed=m_speed, m_gauge=0, max_gauge=max_gauge
-        )
-
         message = await ctx.send("⚔️ **Monster Battle Started**")
 
         while p_hp > 0 and m_hp > 0:
@@ -520,20 +500,17 @@ class DungeonGame(commands.Cog):
 
                 p_gauge -= max_gauge
 
-                if state.skip_next_turn:
-                    state.skip_next_turn = False
-                    battle_log.append("⚠️ **Overcharge** backfired — you lose your turn!")
-                elif random.random() < m_dodge and not is_stunned:
+                if random.random() < m_dodge and not is_stunned:
                     battle_log.append("👹 Monster **dodged** your attack")
                 else:
 
                     base_damage = calculate_scaled_damage(p_damage, m_armor)
                     damage = int(base_damage * random.uniform(0.8, 1.2))
 
-                    damage = apply_frost_damage_bonus(state, damage)
-
                     if is_stunned:
                         damage *= 2
+                        is_stunned = False
+                        m_tenacity = max_tenacity
                         battle_log.append("💫 Stunned monster took double damage!")
 
                     if random.random() < p_crit:
@@ -542,28 +519,11 @@ class DungeonGame(commands.Cog):
                     else:
                         crit = ""
 
-                    state.p_hp = p_hp
-                    state.m_hp = m_hp
-                    state.m_armor = m_armor
-                    state.m_gauge = m_gauge
-                    state.m_speed = m_speed
-
-                    damage, passive_logs = apply_on_hit_passives(
-                        state, damage, int(base_damage), weapon_passives
-                    )
-
-                    p_hp = state.p_hp
-                    m_hp = state.m_hp
-                    m_armor = state.m_armor
-                    m_gauge = state.m_gauge
-                    m_speed = state.m_speed
-
                     m_hp -= damage
 
-                    hit_msg = f"{ctx.author.mention} hits monster for **{damage}** {crit}"
-                    if passive_logs:
-                        hit_msg += " | " + " | ".join(passive_logs)
-                    battle_log.append(hit_msg)
+                    battle_log.append(
+                        f"{ctx.author.mention} hits monster for **{damage}** {crit}"
+                    )
 
                     if not is_stunned and max_tenacity > 0:
                         m_tenacity -= p_break
@@ -579,37 +539,11 @@ class DungeonGame(commands.Cog):
 
                 m_gauge -= max_gauge
 
-                turn_suffix = ""
-                if weapon_passives:
-                    state.p_hp = p_hp
-                    state.m_hp = m_hp
-                    dot_logs = apply_dot_passives(state, weapon_passives)
-                    p_hp = state.p_hp
-                    m_hp = state.m_hp
-                    frost_log = tick_frost(state)
-                    m_speed = state.m_speed
-                    dot_tick_logs = tick_dot(state)
-                    corrosion_log = tick_corrosion(state)
-                    m_armor = state.m_armor
-                    all_suffix = (
-                        dot_logs
-                        + ([frost_log] if frost_log else [])
-                        + dot_tick_logs
-                        + ([corrosion_log] if corrosion_log else [])
-                    )
-                    if all_suffix:
-                        turn_suffix = " | " + " | ".join(all_suffix)
-
                 if is_stunned:
-                    is_stunned = False
-                    m_tenacity = max_tenacity
-                    battle_log.append(f"💫 Monster is **Stunned** and skips its turn!{turn_suffix}")
-                elif state.stun_turns_left > 0:
-                    state.stun_turns_left -= 1
-                    battle_log.append(f"💥 Monster is **Stunned** by passive and skips its turn!{turn_suffix}")
+                    battle_log.append("💫 Monster is **Stunned** and skips its turn!")
                 else:
                     if random.random() < p_dodge:
-                        battle_log.append(f"👟 You **dodged** the monster attack{turn_suffix}")
+                        battle_log.append("👟 You **dodged** the monster attack")
                     else:
 
                         base_damage = calculate_scaled_damage(m_damage, p_armor)
@@ -624,7 +558,7 @@ class DungeonGame(commands.Cog):
                         p_hp -= damage
 
                         battle_log.append(
-                            f"👹 Monster hits you for **{damage}** {crit}{turn_suffix}"
+                            f"👹 Monster hits you for **{damage}** {crit}"
                         )
 
                 await asyncio.sleep(TURN_DELAY)

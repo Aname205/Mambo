@@ -9,11 +9,11 @@ class PlayersDB:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER,
                     
-                    health INTEGER default 50,
-                    damage INTEGER default 5,
+                    health INTEGER default 100,
+                    damage INTEGER default 10,
                     armor INTEGER default 0,
                     speed INTEGER default 8,
-                    break_force INTEGER default 2,
+                    break_force INTEGER default 5,
                     critical_chance REAL default 0.05,
                     dodge_chance REAL default 0.05,
                     
@@ -125,28 +125,31 @@ class PlayersDB:
                 
                 ap_gain = 5 + (5 * (new_level // 10))
                 total_ap_gained += ap_gain
-            
-            if leveled_up:
+                
                 await cursor.execute("""
                     UPDATE players 
-                    SET level = ?, 
-                        exp = ?, 
-                        ability_points = ability_points + ?
+                    SET health = health + 10,
+                        damage = damage + 2,
+                        armor = armor + 1,
+                        ability_points = ability_points + ?,
+                        current_health = health + 10
                     WHERE user_id = ?
-                """, (new_level, new_exp, total_ap_gained, user_id))
+                """, (ap_gain, user_id))
                 
-                await self.db.commit()
-                # Recalculate all stats based on new level
-                await self.recalculate_stats(user_id)
-            else:
-                await cursor.execute("UPDATE players SET exp = ? WHERE user_id = ?", (new_exp, user_id))
-                await self.db.commit()
-
+                if new_level % 5 == 0:
+                    await cursor.execute("""
+                        UPDATE players 
+                        SET speed = speed + 1
+                        WHERE user_id = ?
+                    """, (user_id,))
+            
+            await cursor.execute("UPDATE players SET level = ?, exp = ? WHERE user_id = ?", (new_level, new_exp, user_id))
+        await self.db.commit()
         return leveled_up, new_level, total_ap_gained
 
-    async def spend_ability_point(self, user_id, stat, amount=1):
+    async def spend_ability_point(self, user_id, stat):
         """
-        Spend ability points to increase a stat.
+        Spend 1 ability point to increase a stat.
         stat options: health, damage, armor, speed, break_force, critical_chance, dodge_chance
         Returns: (success: bool, message: str, remaining_points: int)
         """
@@ -154,10 +157,10 @@ class PlayersDB:
             "health": 10,
             "damage": 2,
             "armor": 1,
-            "speed": 0.5,
-            "break_force": 0.5,
-            "critical_chance": 0.0025,
-            "dodge_chance": 0.0025
+            "speed": 0.2,
+            "break_force": 0.2,
+            "critical_chance": 0.003,
+            "dodge_chance": 0.001
         }
         
         stat_to_ap_column = {
@@ -182,25 +185,30 @@ class PlayersDB:
             
             ability_points = row[0]
             
-            if ability_points < amount:
-                return False, f"Not enough ability points (needed {amount})", 0
+            if ability_points < 1:
+                return False, "Not enough ability points", 0
             
+            increase = stat_increases[stat]
             ap_column = stat_to_ap_column[stat]
             
-            # Update the AP tracker and decrease ability points
+            # Update the stat, increase AP tracker, and decrease ability points
             await cursor.execute(f"""
                 UPDATE players 
-                SET {ap_column} = {ap_column} + ?,
-                    ability_points = ability_points - ?
+                SET {stat} = {stat} + ?,
+                    {ap_column} = {ap_column} + 1,
+                    ability_points = ability_points - 1
                 WHERE user_id = ?
-            """, (amount, amount, user_id))
+            """, (increase, user_id))
 
+            # If spending on health, restore current_health to new max
+            if stat == "health":
+                await cursor.execute("""
+                    UPDATE players SET current_health = health WHERE user_id = ?
+                """, (user_id,))
+            
             await self.db.commit()
             
-            # Recalculate stats to apply the change consistently
-            await self.recalculate_stats(user_id)
-            
-            return True, f"Increased {stat} by {amount}", ability_points - amount
+            return True, f"Increased {stat} by {increase}", ability_points - 1
 
     async def reset_ability_points(self, user_id):
         """
@@ -223,16 +231,28 @@ class PlayersDB:
             level, current_ap = row[0], row[1]
             ap_health, ap_damage, ap_armor, ap_speed, ap_break, ap_crit, ap_dodge = row[2:9]
             
-            # Calculate total AP to refund
+            # Calculate how much to subtract (AP bonuses only)
+            health_reduction = ap_health * 10
+            damage_reduction = ap_damage * 2
+            armor_reduction = ap_armor * 1
+            speed_reduction = ap_speed * 0.2
+            break_reduction = ap_break * 0.2
+            crit_reduction = ap_crit * 0.003
+            dodge_reduction = ap_dodge * 0.001
+            
+            # Recalculate the total AP earned by summing the AP from each level-up
             total_ap = 0
             for i in range(1, level):
                 lvl = i + 1
                 total_ap += 5 + (5 * (lvl // 10))
 
-            # Reset AP trackers and refund all AP
+            # Remove only AP bonuses, reset AP trackers, and refund all AP
             await cursor.execute("""
                 UPDATE players 
-                SET ability_points = ?,
+                SET health = health - ?,
+                    damage = damage - ?,
+                    armor = armor - ?,
+                    ability_points = ?,
                     ap_health = 0,
                     ap_damage = 0,
                     ap_armor = 0,
@@ -241,12 +261,9 @@ class PlayersDB:
                     ap_crit = 0,
                     ap_dodge = 0
                 WHERE user_id = ?
-            """, (total_ap, user_id))
+            """, (health_reduction, damage_reduction, armor_reduction, total_ap, user_id))
             
             await self.db.commit()
-            
-            # Recalculate stats to revert AP bonuses consistently
-            await self.recalculate_stats(user_id)
             
             ap_refunded = total_ap - current_ap
             
@@ -330,13 +347,13 @@ class PlayersDB:
             level, ap_health, ap_damage, ap_armor, ap_speed, ap_break, ap_crit, ap_dodge, weapon_id, armor_id, acc1_id, acc2_id = player_data
             
             # Base stats from player level + AP tracking
-            base_health = 50 + (level - 1) * 10 + (ap_health * 10)
-            base_damage = 5 + (level - 1) * 2 + (ap_damage * 2)
+            base_health = 100 + (level - 1) * 10 + (ap_health * 10)
+            base_damage = 10 + (level - 1) * 2 + (ap_damage * 2)
             base_armor = 0 + (level - 1) * 1 + (ap_armor * 1)
-            base_speed = 8 + (level // 5) + (ap_speed * 0.5)
-            base_break_force = 2 + (ap_break * 0.5)
-            base_crit = 0.05 + (ap_crit * 0.0025)
-            base_dodge = 0.05 + (ap_dodge * 0.0025)
+            base_speed = 8 + ((level - 1) // 5) + (ap_speed * 0.2)
+            base_break_force = 5 + (ap_break * 0.2)
+            base_crit = 0.05 + (ap_crit * 0.003)
+            base_dodge = 0.05 + (ap_dodge * 0.001)
 
             # Calculate total stats from equipment
             total_health = base_health
@@ -366,8 +383,6 @@ class PlayersDB:
                         total_crit += eq_stats[5]
                         total_dodge += eq_stats[6]
             
-            total_dodge = min(0.90, total_dodge)
-            
             new_current_health = max(1, total_health - missing_health)
 
             # Update player stats
@@ -393,7 +408,7 @@ class PlayersDB:
 
             # Get item_id and tier from inventory
             await cursor.execute("""
-                SELECT item_id, item_tier, is_equipped
+                SELECT item_id, item_tier
                 FROM inventories
                 WHERE id = ?
                 AND user_id = ?
@@ -402,12 +417,9 @@ class PlayersDB:
             row = await cursor.fetchone()
 
             if not row:
-                return "not_found"
+                return
 
-            item_id, item_tier, is_equipped = row
-
-            if is_equipped:
-                return "already_equipped"
+            item_id, item_tier = row
             
             # Get equipment_id from equipments table
             await cursor.execute("""
@@ -487,23 +499,30 @@ class PlayersDB:
             if column is None:
                 return
 
-            # Unequip old item: mark its inventory row as not equipped
+            # Return old equipment to inventory
             if old_equipment:
+                # Get item_id and tier from equipment_id
                 await cursor.execute("""
-                    UPDATE inventories
-                    SET is_equipped = 0
-                    WHERE user_id = ?
-                      AND is_equipped = 1
-                      AND item_id = (SELECT item_id FROM equipments WHERE id = ?)
-                      AND item_tier = (SELECT tier FROM equipments WHERE id = ?)
-                """, (user_id, old_equipment, old_equipment))
+                    SELECT item_id, tier
+                    FROM equipments
+                    WHERE id = ?
+                    """, (old_equipment,))
+                
+                old_eq_row = await cursor.fetchone()
+                
+                if old_eq_row:
+                    old_item_id, old_tier = old_eq_row
+                    await cursor.execute("""
+                        INSERT INTO inventories(user_id, item_id, item_tier)
+                        VALUES (?, ?, ?)
+                        """, (user_id, old_item_id, old_tier))
 
-            # Mark new equipment's inventory row as equipped
+            # Remove new equipment from inventory
             await cursor.execute("""
-                UPDATE inventories
-                SET is_equipped = 1
+                DELETE
+                FROM inventories
                 WHERE id = ?
-            """, (inv_id,))
+                """, (inv_id,))
 
             # Equip item
             await cursor.execute(f"""
@@ -559,17 +578,11 @@ class PlayersDB:
                         e.speed,
                         e.break_force,
                         e.critical_chance,
-                        e.dodge_chance,
-                        GROUP_CONCAT(p.affix_suffix, ' ') as affix_suffix
+                        e.dodge_chance
                     FROM equipments e
                     JOIN items i ON e.item_id = i.id
-                    LEFT JOIN inventories inv ON inv.item_id = e.item_id AND inv.item_tier = e.tier
-                        AND inv.user_id = ? AND inv.is_equipped = 1
-                    LEFT JOIN item_passives ip ON ip.inventory_id = inv.id
-                    LEFT JOIN passives p ON p.id = ip.passive_id
                     WHERE e.id = ?
-                    GROUP BY e.id
-                    """, (user_id, eq_id,))
+                    """, (eq_id,))
                 
                 return await cursor.fetchone()
             

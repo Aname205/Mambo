@@ -11,15 +11,13 @@ class InventorySelect(discord.ui.Select):
         options = []
 
         for i, row in enumerate(view.inventory[start:end], start=start):
-            inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, is_locked, is_equipped, eq_type, *rest = row
-            affix_suffix = rest[7] if len(rest) > 7 else None
+            inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, is_locked, *_ = row
 
             lock = "🔒 " if is_locked else ""
-            display_name = f"{tier} {affix_suffix} {name}" if affix_suffix else f"{tier} {name}"
 
             options.append(
                 discord.SelectOption(
-                    label=f"[{i+1}] {display_name} {lock}",
+                    label=f"[{i+1}] {tier} {name} {lock}",
                     description="",
                     emoji=emoji,
                     value=str(i)
@@ -68,17 +66,15 @@ class InventoryView(discord.ui.View):
         end = start + self.per_page
 
         for i, (inv_id, item_id, item_name, item_emoji, item_tier, amount, fishing_price,
-                market_price, is_locked, is_equipped, eq_type, *rest) in enumerate(self.inventory[start:end], start=start):
+                market_price, is_locked, *_) in enumerate(self.inventory[start:end], start=start):
 
-            affix_suffix = rest[7] if len(rest) > 7 else None
             left_pointer = "⭐ " if i == self.selected else ""
 
             price = fishing_price if fishing_price is not None else market_price
             lock_icon = "🔒" if is_locked else ""
-            display_name = f"{item_tier} {affix_suffix} {item_name}" if affix_suffix else f"{item_tier} {item_name}"
 
             em.add_field(
-                name=f"{left_pointer} [{i+1}] {display_name} {item_emoji} {lock_icon} ({amount})",
+                name=f"{left_pointer} [{i+1}] {item_tier} {item_name} {item_emoji} {lock_icon} ({amount})",
                 value=f"Price: {price} 🪙",
                 inline=False
             )
@@ -282,9 +278,9 @@ class Inventory(commands.Cog):
         if str(item_name).lower() == 'all' and item_amount is None:
             coin_amount = 0
             item_count = 0
-            for inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, is_locked, is_equipped, *_ in inventory:
-                if is_locked or is_equipped:
-                    continue  # Skip locked or equipped items
+            for inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, _, _, is_locked, *_ in inventory:
+                if is_locked:
+                    continue  # Skip locked items
                 price = fishing_price if fishing_price is not None else market_price
                 if price is None:
                     continue
@@ -307,7 +303,7 @@ class Inventory(commands.Cog):
 
             row = inventory[index]
 
-            inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, _, _, _, is_locked, *_ = row
+            inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, _, _, is_locked, *_ = row
             
             if is_locked:
                 return await ctx.send(f"**{tier} {name}** {emoji} is locked and cannot be sold")
@@ -324,7 +320,7 @@ class Inventory(commands.Cog):
 
         matching_rows = [
             (inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, is_locked, *_)
-            for inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, _, _, _, is_locked, *_ in inventory
+            for inv_id, item_id, name, emoji, tier, amount, fishing_price, market_price, _, _, is_locked, *_ in inventory
             if name.lower() == normalized_name
         ]
 
@@ -375,7 +371,7 @@ class Inventory(commands.Cog):
             return await ctx.send("Invalid item index.")
 
         row = inventory[index]
-        inv_id, item_id, name, emoji, tier, amount, _, _, _, _, _, is_locked, *_ = row
+        inv_id, item_id, name, emoji, tier, amount, _, _, _, _, is_locked, *_ = row
 
         if is_locked:
             return await ctx.send(f"**{tier} {name}** {emoji} is already locked")
@@ -400,7 +396,7 @@ class Inventory(commands.Cog):
             return await ctx.send("Invalid item index")
 
         row = inventory[index]
-        inv_id, item_id, name, emoji, tier, amount, _, _, _, _, _, is_locked, *_ = row
+        inv_id, item_id, name, emoji, tier, amount, _, _, _, _, is_locked, *_ = row
 
         if not is_locked:
             return await ctx.send(f"**{tier} {name}** {emoji} is already unlocked")

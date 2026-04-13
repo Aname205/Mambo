@@ -12,19 +12,9 @@ class InventoriesDB:
             item_tier TEXT,
             amount INTEGER DEFAULT 1,
             is_lock BOOLEAN DEFAULT 0,
-            is_equipped BOOLEAN DEFAULT 0,
             FOREIGN KEY (item_id) REFERENCES items(id)
         )
         """)
-        await self.db.commit()
-        await self._ensure_columns()
-
-    async def _ensure_columns(self):
-        async with self.db.cursor() as cursor:
-            await cursor.execute("PRAGMA table_info(inventories)")
-            cols = [row[1] for row in await cursor.fetchall()]
-            if "is_equipped" not in cols:
-                await cursor.execute("ALTER TABLE inventories ADD COLUMN is_equipped BOOLEAN DEFAULT 0")
         await self.db.commit()
 
     async def get_inventory(self, user_id):
@@ -40,7 +30,6 @@ class InventoriesDB:
                     fi.price,
                     COALESCE(em.price, mi.price) AS market_price,
                     inv.is_lock,
-                    inv.is_equipped,
                     em.equipment_type,
                     em.health,
                     em.damage,
@@ -48,8 +37,7 @@ class InventoriesDB:
                     em.speed,
                     em.break_force,
                     em.critical_chance,
-                    em.dodge_chance,
-                    GROUP_CONCAT(p.affix_suffix, ' ') as affix_suffix
+                    em.dodge_chance
                 FROM inventories inv
                     JOIN items i ON inv.item_id = i.id
                     LEFT JOIN fishing_items fi 
@@ -58,10 +46,7 @@ class InventoriesDB:
                         ON i.id = mi.id AND mi.tier = inv.item_tier
                     LEFT JOIN equipments em
                         ON i.id = em.item_id AND em.tier = inv.item_tier
-                    LEFT JOIN item_passives ip ON ip.inventory_id = inv.id
-                    LEFT JOIN passives p ON p.id = ip.passive_id
-                WHERE inv.user_id = ?
-                GROUP BY inv.id""", (user_id,)
+                WHERE inv.user_id = ? """, (user_id,)
             )
             return await cursor.fetchall()
 
@@ -149,8 +134,7 @@ class InventoriesDB:
             await cursor.execute(""" 
                 DELETE FROM inventories 
                 WHERE user_id = ? 
-                AND is_lock = 0
-                AND is_equipped = 0""", (user_id,)
+                AND is_lock = 0""", (user_id,)
             )
             await self.db.commit()
 

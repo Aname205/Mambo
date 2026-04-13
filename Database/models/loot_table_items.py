@@ -95,11 +95,11 @@ class LootTableItemsDB:
         """
 
         TIER_DROP = {
-            "common":    0.675,
-            "uncommon":  0.2,
-            "rare":      0.1,
-            "epic":      0.02,
-            "legendary": 0.005,
+            "common":    0.55,
+            "uncommon":  0.20,
+            "rare":      0.15,
+            "epic":      0.07,
+            "legendary": 0.03,
         }
 
         MODIFIER_TIER_BONUS = {
@@ -159,7 +159,6 @@ class LootTableItemsDB:
         tier_chances = self.get_tier_chances(modifier, monster_level, monster_base_level)
 
         drops = []
-        dropped_ids = set()
 
         roll_count = random.randint(1, 3)
 
@@ -167,8 +166,7 @@ class LootTableItemsDB:
 
             rolled_tier = self.roll_tier(tier_chances)
 
-            # Filter items by tier AND ensure they haven't dropped already
-            tier_items = [i for i in items if i[7] == rolled_tier and i[0] not in dropped_ids]
+            tier_items = [i for i in items if i[7] == rolled_tier]
 
             if not tier_items:
                 continue
@@ -178,7 +176,6 @@ class LootTableItemsDB:
             item_id, chance, min_amt, max_amt, name, emoji, item_type, tier = item
 
             if random.random() <= chance:
-                dropped_ids.add(item_id)
                 amount = random.randint(min_amt, max_amt)
 
                 drops.append({

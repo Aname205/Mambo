@@ -2,6 +2,31 @@ import discord
 from discord.ext import commands
 import asyncio
 
+class HealConfirmView(discord.ui.View):
+    def __init__(self, ctx, heal_cost):
+        super().__init__(timeout=30)
+        self.ctx = ctx
+        self.heal_cost = heal_cost
+        self.confirmed = False
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.ctx.author:
+            return await interaction.response.send_message("This is not your confirmation prompt.", ephemeral=True)
+
+        self.confirmed = True
+        self.stop()
+        await interaction.response.defer()
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.ctx.author:
+            return await interaction.response.send_message("This is not your confirmation prompt.", ephemeral=True)
+
+        self.confirmed = False
+        self.stop()
+        await interaction.response.defer()
+
 class Heal(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -9,48 +34,40 @@ class Heal(commands.Cog):
     @commands.command()
     async def heal(self, ctx):
         player = await self.bot.db.players.get_player(ctx.author.id)
-        if not player:
-            return await ctx.send("Player data not found.")
-
         max_health = player[2]
         current_health = player[23] if player[23] is not None else max_health
 
         if current_health >= max_health:
-            return await ctx.send("❤️ You are already at **full health**!")
+            return await ctx.send("You are already at full health!")
 
         missing_health = max_health - current_health
         
-        # Calculate heal cost
         if max_health < 1000:
-            # Simple formula for lower levels: 1 coin per 1 HP missing
             heal_cost = missing_health
         else:
-            # Scaling formula for high HP players to prevent "infinite" effective HP
-            base_cost = 1.0
+            base_cost = 1.0  # Use float for calculation
             missing_ratio = missing_health / max_health
-            # Cost increases quadratically based on how much % health is missing
+            # The cost should be per point of health, not multiplied by it
             heal_cost = int(base_cost * (1 + (missing_ratio * 5) ** 2) * missing_health)
+
 
         wallet, _ = await self.bot.db.get_balance(ctx.author.id)
 
-        # check if player has enough money
         if wallet < heal_cost:
-            return await ctx.send(f"⚠️ **Insufficient Funds!**\nYou need **{heal_cost}** coins to heal, but you only have **{wallet}** coins.")
+            return await ctx.send(f"You need {heal_cost} coins to heal, but you only have {wallet} coins.")
 
-        # Process Healing immediately
-        await self.bot.db.update_wallet(ctx.author.id, -heal_cost)
-        await self.bot.db.players.update_current_health(ctx.author.id, max_health)
+        view = HealConfirmView(ctx, heal_cost)
+        message = await ctx.send(f"Are you sure you want to heal {missing_health} HP for {heal_cost} coins?", view=view)
 
-        embed = discord.Embed(
-            title="❤️ Healing Complete",
-            description=f"You have been fully healed to **{max_health} HP**.",
-            color=discord.Color.green()
-        )
-        embed.add_field(name="Healed For", value=f"**+{missing_health} HP**", inline=True)
-        embed.add_field(name="Cost", value=f"**{heal_cost}** 🪙", inline=True)
-        embed.set_footer(text=f"Remaining Balance: {wallet - heal_cost} coins")
+        await view.wait()
 
-        await ctx.send(embed=embed)
+        if view.confirmed:
+            await self.bot.db.update_wallet(ctx.author.id, -heal_cost)
+            new_health = current_health + missing_health
+            await self.bot.db.players.update_current_health(ctx.author.id, new_health)
+            await message.edit(content=f"You have been healed for {missing_health} HP for {heal_cost} coins.", view=None)
+        else:
+            await message.edit(content="Healing cancelled.", view=None)
 
 async def setup(bot):
     await bot.add_cog(Heal(bot))
