@@ -393,7 +393,7 @@ class PlayersDB:
 
             # Get item_id and tier from inventory
             await cursor.execute("""
-                SELECT item_id, item_tier, is_equipped
+                SELECT item_id, item_tier
                 FROM inventories
                 WHERE id = ?
                 AND user_id = ?
@@ -402,12 +402,9 @@ class PlayersDB:
             row = await cursor.fetchone()
 
             if not row:
-                return "not_found"
+                return
 
-            item_id, item_tier, is_equipped = row
-
-            if is_equipped:
-                return "already_equipped"
+            item_id, item_tier = row
             
             # Get equipment_id from equipments table
             await cursor.execute("""
@@ -487,23 +484,30 @@ class PlayersDB:
             if column is None:
                 return
 
-            # Unequip old item: mark its inventory row as not equipped
+            # Return old equipment to inventory
             if old_equipment:
+                # Get item_id and tier from equipment_id
                 await cursor.execute("""
-                    UPDATE inventories
-                    SET is_equipped = 0
-                    WHERE user_id = ?
-                      AND is_equipped = 1
-                      AND item_id = (SELECT item_id FROM equipments WHERE id = ?)
-                      AND item_tier = (SELECT tier FROM equipments WHERE id = ?)
-                """, (user_id, old_equipment, old_equipment))
+                    SELECT item_id, tier
+                    FROM equipments
+                    WHERE id = ?
+                    """, (old_equipment,))
+                
+                old_eq_row = await cursor.fetchone()
+                
+                if old_eq_row:
+                    old_item_id, old_tier = old_eq_row
+                    await cursor.execute("""
+                        INSERT INTO inventories(user_id, item_id, item_tier)
+                        VALUES (?, ?, ?)
+                        """, (user_id, old_item_id, old_tier))
 
-            # Mark new equipment's inventory row as equipped
+            # Remove new equipment from inventory
             await cursor.execute("""
-                UPDATE inventories
-                SET is_equipped = 1
+                DELETE
+                FROM inventories
                 WHERE id = ?
-            """, (inv_id,))
+                """, (inv_id,))
 
             # Equip item
             await cursor.execute(f"""
@@ -559,17 +563,11 @@ class PlayersDB:
                         e.speed,
                         e.break_force,
                         e.critical_chance,
-                        e.dodge_chance,
-                        GROUP_CONCAT(p.affix_suffix, ' ') as affix_suffix
+                        e.dodge_chance
                     FROM equipments e
                     JOIN items i ON e.item_id = i.id
-                    LEFT JOIN inventories inv ON inv.item_id = e.item_id AND inv.item_tier = e.tier
-                        AND inv.user_id = ? AND inv.is_equipped = 1
-                    LEFT JOIN item_passives ip ON ip.inventory_id = inv.id
-                    LEFT JOIN passives p ON p.id = ip.passive_id
                     WHERE e.id = ?
-                    GROUP BY e.id
-                    """, (user_id, eq_id,))
+                    """, (eq_id,))
                 
                 return await cursor.fetchone()
             

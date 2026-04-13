@@ -249,35 +249,39 @@ class EquipmentsDB:
 
                     valid_keys.append((item_id, tier))
 
-            # Remove equipment rows no longer in the pool
+            # Remove rows not in pool anymore
             async with self.db.cursor() as cursor:
+
                 if valid_keys:
                     placeholders = ",".join(["(?, ?)"] * len(valid_keys))
-                    values = [v for pair in valid_keys for v in pair]
 
-                    # Disable FK temporarily so we can clean up without cascade errors
-                    await cursor.execute("PRAGMA foreign_keys = OFF")
+                    values = [v for pair in valid_keys for v in pair]
 
                     await cursor.execute(f"""
                         DELETE FROM equipments
                         WHERE (item_id, tier) NOT IN ({placeholders})
                     """, values)
+            await self.db.commit()
 
-                    # Remove item entries no longer in any pool
-                    valid_names = (
-                        [e[0] for e in base_equipments] +
-                        [e[0] for e in market_equipments]
-                    )
-                    name_placeholders = ",".join("?" * len(valid_names))
+            # Remove equipments not in base pool
+            valid_names = (
+                    [e[0] for e in base_equipments] +
+                    [e[0] for e in market_equipments]
+            )
+
+            if valid_names:
+
+                async with self.db.cursor() as cursor:
+
+                    placeholders = ",".join("?" * len(valid_names))
+
                     await cursor.execute(f"""
                         DELETE FROM items
-                        WHERE item_type = 'equipment'
-                        AND name NOT IN ({name_placeholders})
+                        WHERE item_type='equipment'
+                        AND name NOT IN ({placeholders})
                     """, valid_names)
 
-                    await cursor.execute("PRAGMA foreign_keys = ON")
-
-            await self.db.commit()
+                await self.db.commit()
         except Exception as e:
             print(f"Error generating equipments: {e}")
             raise

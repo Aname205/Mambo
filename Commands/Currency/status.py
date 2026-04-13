@@ -35,11 +35,9 @@ class   EquipSelect(discord.ui.Select):
                 if eq[15]: deltas.append(f"🎯{eq[15]*100:.1f}%")
                 if eq[16]: deltas.append(f"👟{eq[16]*100:.1f}%")
 
-            affix_suffix = eq[18] if len(eq) > 18 else None
-            display_name = f"{eq[4]} {affix_suffix} {eq[2]}" if affix_suffix else f"{eq[4]} {eq[2]}"
             options.append(
                 discord.SelectOption(
-                    label=display_name,
+                    label=f"{eq[4]} {eq[2]}",
                     value=str(eq[0]),
                     emoji=eq[3],
                     description=" | ".join(deltas) if deltas else "No stat changes"
@@ -71,16 +69,11 @@ class   EquipSelect(discord.ui.Select):
         # Save old stats to calculate delta
         old_player = self.parent_view.player
 
-        result = await self.parent_view.bot.db.players.equip_item(
+        await self.parent_view.bot.db.players.equip_item(
             interaction.user.id,
             inv_id,
             slot
         )
-
-        if result == "not_found":
-            return await interaction.response.send_message("❌ Item not found in your inventory.", ephemeral=True)
-        if result == "already_equipped":
-            return await interaction.response.send_message("❌ This item is already equipped in another slot.", ephemeral=True)
 
         # Refresh player stats
         player = await self.parent_view.bot.db.get_player(interaction.user.id)
@@ -129,7 +122,7 @@ class   EquipSelect(discord.ui.Select):
 
         equipments = [
             item for item in inventory
-            if item[10] == equipment_type
+            if item[9] == equipment_type
         ]
 
         # rebuild UI
@@ -151,9 +144,7 @@ class   EquipSelect(discord.ui.Select):
         self.parent_view.add_item(self.parent_view.accessory_button_1)
         self.parent_view.add_item(self.parent_view.accessory_button_2)
 
-        affix_suffix = equipment[18] if len(equipment) > 18 else None
-        display_name = f"{equipment[4]} {affix_suffix} {equipment[2]}" if affix_suffix else f"{equipment[4]} {equipment[2]}"
-        message = f"Equipped {display_name} {equipment[3]}"
+        message = f"Equipped {equipment[4]} {equipment[2]} {equipment[3]}"
         if deltas:
             message += f" ({' | '.join(deltas)})"
             
@@ -163,7 +154,7 @@ class   EquipSelect(discord.ui.Select):
         )
 
 class StatusView(discord.ui.View):
-    def __init__(self, bot, user, player, inventory, equipped_items, weapon_affix=None):
+    def __init__(self, bot ,user, player, inventory, equipped_items):
         super().__init__(timeout=30)
 
         self.bot = bot
@@ -171,7 +162,6 @@ class StatusView(discord.ui.View):
         self.player = player
         self.inventory = inventory
         self.equipped_items = equipped_items
-        self.weapon_affix = weapon_affix  # affix_suffix string for equipped weapon, e.g. "Poisonous"
         self.slot = None
 
     def update_embed(self, message=None):
@@ -263,7 +253,7 @@ class StatusView(discord.ui.View):
         if not eq:
             return "□"
 
-        inv_id, item_id, name, emoji, tier, _, _, _, eq_type, health, dmg, armor, speed, break_force, crit, dodge, affix_suffix = eq
+        inv_id, item_id, name, emoji, tier, _, _, _, eq_type, health, dmg, armor, speed, break_force, crit, dodge = eq
 
         if health:
             eqs.append(f"❤️ **{health}**")
@@ -280,8 +270,7 @@ class StatusView(discord.ui.View):
         if dodge:
             eqs.append(f"👟 **{dodge * 100:.0f}%**")
         eqst = " ".join(eqs)
-        display_name = f"{tier} {affix_suffix} {name}" if affix_suffix else f"{tier} {name}"
-        return f"**{display_name} {emoji}**\n{eqst}"
+        return f"**{tier} {name} {emoji}**\n{eqst}"
 
     def find_item(self, eq_id):
         return next((i for i in self.inventory if i[0] == eq_id), None)
@@ -297,7 +286,7 @@ class StatusView(discord.ui.View):
         # Filter inventory
         equipments = [
             item for item in self.inventory
-            if item[10] == equipment_type
+            if item[9] == equipment_type
         ]
 
         if not equipments:

@@ -79,7 +79,6 @@ async def main():
         await bot.load_extension("Commands.Currency.boss")
         await bot.load_extension("Commands.Currency.allocate")
         await bot.load_extension("Commands.Currency.heal")
-        await bot.load_extension("Commands.Currency.passive")
         await start_bot_with_retry()
 
 asyncio.run(main())

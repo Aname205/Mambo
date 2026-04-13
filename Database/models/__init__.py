@@ -12,11 +12,8 @@ from .battle_logs import BattleLogsDB
 from .pvp_logs import PvpLogsDB
 from .loot_tables import LootTablesDB
 from .loot_table_items import LootTableItemsDB
-from .passives import PassivesDB
-from .item_passives import ItemPassivesDB
 
 __all__ = ['BalanceDB', 'ItemsDB', 'FishingItemsDB', 'InventoriesDB', 'LotteriesDB', 'LotteryPlayersDB',
-           'MarketItemsDB', 'PlayersDB', 'EquipmentsDB', 'MonsterDB', 'BattleLogsDB', 'PvpLogsDB', 'LootTablesDB',
-           'LootTableItemsDB', 'PassivesDB', 'ItemPassivesDB']
+           'MarketItemsDB', 'PlayersDB', 'EquipmentsDB', 'MonsterDB', 'BattleLogsDB', 'PvpLogsDB', 'LootTablesDB', 'LootTableItemsDB']
 
 
